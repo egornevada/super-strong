@@ -1,0 +1,53 @@
+:root{
+  /* -------- Foreground -------- */
+  --fg-1: var(--g-neutral-grey-14);
+  --fg-2: var(--g-neutral-grey-26);
+  --fg-3: var(--g-neutral-grey-50);
+  --fg-inverted: var(--g-neutral-white);
+  --fg-disabled: var(--g-neutral-grey-86);
+  --fg-brand: var(--g-blue-Main);
+  --fg-success: var(--g-green-Main);
+  --fg-error: var(--g-red-Main);
+
+  /* -------- Background -------- */
+  --bg-1: var(--g-neutral-white);
+  --bg-2: var(--g-neutral-grey-96);
+  --bg-3: var(--g-neutral-grey-92);
+  --bg-inverted: var(--g-neutral-grey-14);
+  --bg-controls: var(--g-neutral-grey-74);
+  --bg-disabled: var(--g-neutral-grey-86);
+  --bg-brand: var(--g-blue-Main);
+  --bg-success: var(--g-green-Main);
+  --bg-error: var(--g-red-Main);
+
+  /* -------- Stroke (borders) -------- */
+  --stroke-1: var(--g-neutral-grey-90);
+  --stroke-controls: var(--g-neutral-grey-74);
+  --stroke-disabled: var(--g-neutral-grey-86);
+  --stroke-brand: var(--g-blue-Main);
+  --stroke-success: var(--g-green-Main);
+  --stroke-error: var(--g-red-Main);
+
+  /* -------- Focused -------- */
+  --focus-outside: var(--g-blue-400);      /* ring color */
+  --focus-inside:  var(--g-neutral-white); /* inner fill (если нужен) */
+
+  /* -------- States (ABSOLUTE HSLA) -------- */
+  /* Default (#242424 @ 10% / 20%) */
+  --state-default-hover:   hsla(0, 0%, 14%, 0.10);
+  --state-default-pressed: hsla(0, 0%, 14%, 0.20);
+
+  /* Inverted (#FFFFFF @ 10% / 20%) */
+  --state-inverted-hover:  hsla(0, 0%,100%, 0.10);
+  --state-inverted-pressed:hsla(0, 0%,100%, 0.20);
+
+  /* Brand (#0D85FD ≈ hsl(210 98% 52%) @ 10% / 20%) */
+  --state-brand-hover:     hsla(210, 98%, 52%, 0.10);
+  --state-brand-pressed:   hsla(210, 98%, 52%, 0.20);
+
+  /* Error (#D92626 ≈ hsl(0 70% 50%) @ 10% / 20%) */
+  --state-error-hover:     hsla(0, 70%, 50%, 0.10);
+  --state-error-pressed:   hsla(0, 70%, 50%, 0.20);
+
+  --font-ui: "Inter Variable";
+}

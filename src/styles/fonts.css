@@ -1,0 +1,18 @@
+/* Тянем Inter Variable из node_modules (OFL лицензия) */
+@import "@fontsource-variable/inter";
+
+/* Один токен на семейство — только Inter */
+:root { --font-ui: "Inter Variable"; }
+
+/* Глобально применяем */
+html, body { font-family: var(--font-ui); }
+
+/* Компоненты наследуют, кнопки не сбрасывают */
+button { font: inherit; }
+
+/* Пара полезных опций для вида цифр и оптического размера */
+:root {
+  font-feature-settings: "tnum" 1;
+  font-optical-sizing: auto;
+  font-synthesis-weight: none;
+}

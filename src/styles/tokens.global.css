@@ -1,0 +1,94 @@
+:root {
+
+  /* Neutral */
+  --g-neutral-black: hsla(0, 0%, 0%, 1);
+  --g-neutral-grey-2: hsla(0, 0%, 2%, 1);
+  --g-neutral-grey-4: hsla(0, 0%, 4%, 1);
+  --g-neutral-grey-6: hsla(0, 0%, 6%, 1);
+  --g-neutral-grey-8: hsla(0, 0%, 8%, 1);
+  --g-neutral-grey-10: hsla(0, 0%, 10%, 1);
+  --g-neutral-grey-12: hsla(0, 0%, 12%, 1);
+  --g-neutral-grey-14: hsla(0, 0%, 14%, 1);
+  --g-neutral-grey-16: hsla(0, 0%, 16%, 1);
+  --g-neutral-grey-18: hsla(0, 0%, 18%, 1);
+  --g-neutral-grey-20: hsla(0, 0%, 20%, 1);
+  --g-neutral-grey-22: hsla(0, 0%, 22%, 1);
+  --g-neutral-grey-24: hsla(0, 0%, 24%, 1);
+  --g-neutral-grey-26: hsla(0, 0%, 26%, 1);
+  --g-neutral-grey-28: hsla(0, 0%, 28%, 1);
+  --g-neutral-grey-30: hsla(0, 0%, 30%, 1);
+  --g-neutral-grey-32: hsla(0, 0%, 32%, 1);
+  --g-neutral-grey-34: hsla(0, 0%, 34%, 1);
+  --g-neutral-grey-36: hsla(0, 0%, 36%, 1);
+  --g-neutral-grey-38: hsla(0, 0%, 38%, 1);
+  --g-neutral-grey-40: hsla(0, 0%, 40%, 1);
+  --g-neutral-grey-42: hsla(0, 0%, 42%, 1);
+  --g-neutral-grey-44: hsla(0, 0%, 44%, 1);
+  --g-neutral-grey-46: hsla(0, 0%, 46%, 1);
+  --g-neutral-grey-48: hsla(0, 0%, 48%, 1);
+  --g-neutral-grey-50: hsla(0, 0%, 50%, 1);
+  --g-neutral-grey-52: hsla(0, 0%, 52%, 1);
+  --g-neutral-grey-54: hsla(0, 0%, 54%, 1);
+  --g-neutral-grey-56: hsla(0, 0%, 56%, 1);
+  --g-neutral-grey-58: hsla(0, 0%, 58%, 1);
+  --g-neutral-grey-60: hsla(0, 0%, 60%, 1);
+  --g-neutral-grey-62: hsla(0, 0%, 62%, 1);
+  --g-neutral-grey-64: hsla(0, 0%, 64%, 1);
+  --g-neutral-grey-66: hsla(0, 0%, 66%, 1);
+  --g-neutral-grey-68: hsla(0, 0%, 68%, 1);
+  --g-neutral-grey-70: hsla(0, 0%, 70%, 1);
+  --g-neutral-grey-72: hsla(0, 0%, 72%, 1);
+  --g-neutral-grey-74: hsla(0, 0%, 74%, 1);
+  --g-neutral-grey-76: hsla(0, 0%, 76%, 1);
+  --g-neutral-grey-78: hsla(0, 0%, 78%, 1);
+  --g-neutral-grey-80: hsla(0, 0%, 80%, 1);
+  --g-neutral-grey-82: hsla(0, 0%, 82%, 1);
+  --g-neutral-grey-84: hsla(0, 0%, 84%, 1);
+  --g-neutral-grey-86: hsla(0, 0%, 86%, 1);
+  --g-neutral-grey-88: hsla(0, 0%, 88%, 1);
+  --g-neutral-grey-90: hsla(0, 0%, 90%, 1);
+  --g-neutral-grey-92: hsla(0, 0%, 92%, 1);
+  --g-neutral-grey-94: hsla(0, 0%, 94%, 1);
+  --g-neutral-grey-96: hsla(0, 0%, 96%, 1);
+  --g-neutral-grey-98: hsla(0, 0%, 98%, 1);
+  --g-neutral-white: hsla(0, 0%, 100%, 1);
+
+  /* Blue */
+  --g-blue-50:  hsla(201, 100%, 97%, 1);
+  --g-blue-100: hsla(202, 100%, 92%, 1);
+  --g-blue-200: hsla(201, 100%, 86%, 1);
+  --g-blue-300: hsla(199, 100%, 77%, 1);
+  --g-blue-400: hsla(200, 100%, 66%, 1);
+  --g-blue-500: hsla(205, 100%, 58%, 1);
+  --g-blue-Main: hsla(210, 98%, 52%, 1);
+  --g-blue-700: hsla(213, 90%, 48%, 1);
+  --g-blue-800: hsla(215, 83%, 40%, 1);
+  --g-blue-900: hsla(213, 76%, 33%, 1);
+  --g-blue-950: hsla(215, 68%, 21%, 1);
+
+  /* Green */
+  --g-green-50:  hsla(120, 65%, 97%, 1);
+  --g-green-100: hsla(122, 79%, 93%, 1);
+  --g-green-200: hsla(124, 71%, 85%, 1);
+  --g-green-300: hsla(124, 69%, 73%, 1);
+  --g-green-400: hsla(125, 64%, 58%, 1);
+  --g-green-500: hsla(125, 65%, 45%, 1);
+  --g-green-Main: hsla(125, 70%, 40%, 1);
+  --g-green-700: hsla(125, 65%, 29%, 1);
+  --g-green-800: hsla(126, 59%, 24%, 1);
+  --g-green-900: hsla(127, 55%, 20%, 1);
+  --g-green-950: hsla(126, 73%, 10%, 1);
+
+  /* Red */
+  --g-red-50:  hsla(0, 86%, 97%, 1);
+  --g-red-100: hsla(0, 93%, 94%, 1);
+  --g-red-200: hsla(0, 93%, 89%, 1);
+  --g-red-300: hsla(0, 91%, 82%, 1);
+  --g-red-400: hsla(0, 88%, 71%, 1);
+  --g-red-500: hsla(0, 82%, 60%, 1);
+  --g-red-Main: hsla(0, 70%, 50%, 1);
+  --g-red-700: hsla(0, 72%, 42%, 1);
+  --g-red-800: hsla(0, 68%, 35%, 1);
+  --g-red-900: hsla(0, 62%, 31%, 1);
+  --g-red-950: hsla(0, 72%, 15%, 1);
+}
