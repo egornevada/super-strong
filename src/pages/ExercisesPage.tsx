@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { FilterPill, ExerciseCard, Button, HeaderWithBackButton } from '../components';
+import { useState, useEffect, useRef } from 'react';
+import { FilterPill, ExerciseCard, Button, HeaderWithBackButton, StickyTagsBar } from '../components';
 import { fetchExercises, fetchCategories, type Exercise } from '../services/strapiApi';
 
 interface SelectedDate {
@@ -11,15 +11,21 @@ interface SelectedDate {
 interface ExercisesPageProps {
   selectedDate: SelectedDate | null;
   onBack?: () => void;
+  onStartTraining?: (exercises: Exercise[]) => void;
+  initialSelectedIds?: string[];
 }
 
-export function ExercisesPage({ selectedDate, onBack }: ExercisesPageProps) {
-  const [selectedCategory, setSelectedCategory] = useState('Грудь');
-  const [selectedExercises, setSelectedExercises] = useState<string[]>([]);
+export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSelectedIds = [] }: ExercisesPageProps) {
+  const [selectedExercises, setSelectedExercises] = useState<string[]>(initialSelectedIds);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [categories, setCategories] = useState<string[]>(['Грудь']);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [showStickyBar, setShowStickyBar] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const categoryRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const cloudRef = useRef<HTMLDivElement>(null);
 
   // Загружаем данные при монтировании компонента
   useEffect(() => {
@@ -33,7 +39,6 @@ export function ExercisesPage({ selectedDate, onBack }: ExercisesPageProps) {
         ]);
         setExercises(exercisesData);
         setCategories(categoriesData.length > 0 ? categoriesData : ['Грудь']);
-        setSelectedCategory(categoriesData[0] || 'Грудь');
       } catch (err) {
         console.error('Error loading data:', err);
         setError('Ошибка при загрузке данных');
@@ -44,6 +49,11 @@ export function ExercisesPage({ selectedDate, onBack }: ExercisesPageProps) {
 
     loadData();
   }, []);
+
+  // Синхронизируем выбранные упражнения если изменилось initialSelectedIds
+  useEffect(() => {
+    setSelectedExercises(initialSelectedIds);
+  }, [initialSelectedIds]);
 
   // Если нет выбранной даты, показываем пустую страницу
   if (!selectedDate) {
@@ -67,88 +77,61 @@ export function ExercisesPage({ selectedDate, onBack }: ExercisesPageProps) {
     );
   }
 
-  const hasExercises = selectedExercises.length > 0;
-
-  const filteredExercises = exercises.filter(
-    (ex) => ex.category === selectedCategory
-  );
-
   const handleSelectExercise = (id: string) => {
     setSelectedExercises((prev) =>
       prev.includes(id) ? prev.filter((ex) => ex !== id) : [...prev, id]
     );
   };
 
-  // РЕЖИМ ПРОСМОТРА упражнений (если есть выбранные упражнения)
-  if (hasExercises) {
-    const selectedExercisesList = exercises.filter((ex: Exercise) =>
-      selectedExercises.includes(ex.id)
-    );
+  const scrollToCategory = (category: string) => {
+    const categoryElement = categoryRefs.current[category];
+    if (categoryElement && contentRef.current) {
+      const offsetTop = categoryElement.offsetTop;
+      // Offset учитывает высоту header (72px) + sticky bar (48px) + небольшой padding
+      contentRef.current.scrollTop = offsetTop - 140;
+    }
+  };
 
-    const monthNames = [
-      'Янв.',
-      'Фев.',
-      'Мар.',
-      'Апр.',
-      'Май',
-      'Июн.',
-      'Июл.',
-      'Авг.',
-      'Сен.',
-      'Окт.',
-      'Ноя.',
-      'Дек.',
-    ];
+  // Отслеживаем скролл и обновляем активную категорию + видимость sticky bar
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!contentRef.current || !cloudRef.current) return;
 
-    return (
-      <div className="w-full h-full bg-bg-1 flex flex-col">
-        {/* Header with back button */}
-        <HeaderWithBackButton
-          backButtonLabel={`${selectedDate.day} ${monthNames[selectedDate.month]}`}
-          onBack={onBack}
-        />
+      const scrollTop = contentRef.current.scrollTop;
 
-        {/* Exercises list */}
-        <div className="flex-1 overflow-y-auto px-4 py-6">
-          <div className="space-y-4">
-            {selectedExercisesList.map((exercise: Exercise) => (
-              <div
-                key={exercise.id}
-                className="p-4 bg-bg-2 rounded-lg border border-stroke-1"
-              >
-                <h3 className="font-medium text-fg-1">{exercise.name}</h3>
-                <p className="text-sm text-fg-2 mt-1">{exercise.category}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+      // Скрываем sticky bar если облако видно (находится в верхней части контейнера)
+      // Облако находится в начале контента, поэтому когда скролл минимален - оно видно
+      setShowStickyBar(scrollTop > 120); // 120px - примерная высота облака + margin
 
-        {/* Action buttons */}
-        <div className="px-4 py-4 border-t border-stroke-1 space-y-2">
-          <Button
-            priority="primary"
-            tone="default"
-            size="md"
-            className="w-full"
-            onClick={() => alert('Тренировка завершена!')}
-          >
-            Завершить тренировку
-          </Button>
-          <Button
-            priority="secondary"
-            tone="default"
-            size="md"
-            className="w-full"
-            onClick={onBack}
-          >
-            Вернуться к календарю
-          </Button>
-        </div>
-      </div>
-    );
-  }
+      // Ищем категорию которая видна на экране с учетом offset скроллинга
+      // Точка проверки: на высоте sticky bar (примерно 140px от верхней части скроллинга)
+      const checkPoint = scrollTop + 140;
+      let foundCategory: string | null = null;
 
-  // РЕЖИМ ВЫБОРА упражнений (если упражнений не выбрано)
+      for (const category of categories) {
+        const element = categoryRefs.current[category];
+        if (element) {
+          const elementTop = element.offsetTop;
+
+          // Ищем категорию которая находится выше или на checkPoint
+          // и отслеживаем последнюю такую категорию (т.е. самую видимую)
+          if (elementTop <= checkPoint) {
+            foundCategory = category;
+          }
+        }
+      }
+
+      setActiveCategory(foundCategory);
+    };
+
+    const container = contentRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, [categories]);
+
+  // РЕЖИМ ВЫБОРА упражнений с плавающей кнопкой
   const monthNames = [
     'Янв.',
     'Фев.',
@@ -165,86 +148,131 @@ export function ExercisesPage({ selectedDate, onBack }: ExercisesPageProps) {
   ];
 
   return (
-    <div className="min-h-screen bg-bg-1 pb-8">
-      {/* Header with back button */}
-      <HeaderWithBackButton
-        backButtonLabel={`${selectedDate.day} ${monthNames[selectedDate.month]}`}
-        onBack={onBack}
-      />
+    <div className="w-full h-full bg-bg-3 flex flex-col">
+      {/* Outer page background - bg-bg-3 */}
 
-      {/* Category filters */}
-      <div className="sticky top-[72px] bg-bg-1 z-10 px-4 pt-4 pb-4 border-b border-stroke-1">
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-          {categories.map((category) => (
-            <FilterPill
-              key={category}
-              label={category}
-              isActive={selectedCategory === category}
-              onClick={() => setSelectedCategory(category)}
-            />
-          ))}
-        </div>
-      </div>
+      {/* Content container - bg-bg-1 with rounded corners */}
+      <div className="flex-1 bg-bg-1 rounded-3xl overflow-hidden flex flex-col">
+        {/* Header with back button */}
+        <HeaderWithBackButton
+          backButtonLabel={`${selectedDate.day} ${monthNames[selectedDate.month]}`}
+          onBack={onBack}
+        />
 
-      {/* Content */}
-      <div className="px-4 pt-6">
-        {/* Category title */}
-        <h2 className="text-2xl font-bold text-fg-1 mb-6">{selectedCategory}</h2>
+        {/* Sticky tags bar - appears on scroll */}
+        {showStickyBar && (
+          <StickyTagsBar
+            categories={categories}
+            activeCategory={activeCategory}
+            onCategoryClick={scrollToCategory}
+          />
+        )}
 
-        {/* Exercises grid */}
-        <div className="grid grid-cols-2 gap-4">
+        {/* Scrollable content */}
+        <div
+          ref={contentRef}
+          className="flex-1 overflow-y-auto"
+        >
+          {/* Category filter cloud - scrolls with content */}
+          <div ref={cloudRef} className="flex flex-wrap gap-2 px-3 pt-2 pb-3 mb-8">
+            {categories.map((category) => (
+              <FilterPill
+                key={category}
+                label={category}
+                isActive={false}
+                onClick={() => scrollToCategory(category)}
+              />
+            ))}
+          </div>
           {loading ? (
-            <div className="col-span-2 py-8 text-center">
+            <div className="py-8 text-center">
               <p className="text-fg-2">Загрузка упражнений...</p>
             </div>
           ) : (
-            filteredExercises.map((exercise) => (
-              <ExerciseCard
-                key={exercise.id}
-                id={exercise.id}
-                name={exercise.name}
-                image={
-                  exercise.image ? (
-                    <img
-                      src={exercise.image.url}
-                      alt={exercise.image.alternativeText || exercise.name}
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                    />
-                  ) : undefined
-                }
-                onSelect={handleSelectExercise}
-                isSelected={selectedExercises.includes(exercise.id)}
-              />
-            ))
-          )}
-        </div>
-
-        {filteredExercises.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-fg-3">Упражнений не найдено</p>
-          </div>
-        )}
-
-        {/* Start workout button */}
-        {selectedExercises.length > 0 && (
-          <div className="mt-8 pb-4">
-            <Button
-              priority="primary"
-              tone="default"
-              size="md"
-              className="w-full"
-              onClick={() => {
-                // Переключаемся на режим просмотра
-                alert(
-                  `Выбрано упражнений: ${selectedExercises.length}`
+            <div className="px-3">
+              {categories.map((category) => {
+                const categoryExercises = exercises.filter(
+                  (ex) => ex.category === category
                 );
-              }}
-            >
-              Начать тренировку ({selectedExercises.length})
-            </Button>
-          </div>
-        )}
+
+                return (
+                  <div
+                    key={category}
+                    ref={(el) => {
+                      if (el) categoryRefs.current[category] = el;
+                    }}
+                    className="mb-8"
+                  >
+                    {/* Category title */}
+                    <h2
+                      className="text-fg-1 mb-3"
+                      style={{
+                        fontFamily: 'Inter, sans-serif',
+                        fontSize: '20px',
+                        fontWeight: 500,
+                        lineHeight: '24px'
+                      }}
+                    >
+                      {category}
+                    </h2>
+
+                    {/* Exercises grid */}
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                      {categoryExercises.map((exercise) => (
+                        <ExerciseCard
+                          key={exercise.id}
+                          id={exercise.id}
+                          name={exercise.name}
+                          image={
+                            exercise.image ? (
+                              <img
+                                src={exercise.image.url}
+                                alt={exercise.image.alternativeText || exercise.name}
+                                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                              />
+                            ) : undefined
+                          }
+                          onSelect={handleSelectExercise}
+                          isSelected={selectedExercises.includes(exercise.id)}
+                        />
+                      ))}
+                    </div>
+
+                    {categoryExercises.length === 0 && (
+                      <div className="text-center py-12">
+                        <p className="text-fg-3">Упражнений не найдено</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Invisible spacer for button - 88px */}
+          <div className="h-22" />
+        </div>
       </div>
+
+      {/* Action button - separate block that pushes content up */}
+      {selectedExercises.length > 0 && (
+        <div className="mt-2 px-4 py-4 bg-bg-1 rounded-t-3xl">
+          <Button
+            priority="primary"
+            tone="brand"
+            size="md"
+            className="w-full"
+            onClick={() => {
+              const selectedList = exercises.filter((ex: Exercise) =>
+                selectedExercises.includes(ex.id)
+              );
+              onStartTraining?.(selectedList);
+            }}
+          >
+            Мои упражнения ({selectedExercises.length})
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

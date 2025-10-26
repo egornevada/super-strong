@@ -15,7 +15,8 @@ export const FilterPill = React.forwardRef<HTMLButtonElement, FilterPillProps>(
         ref={ref}
         onClick={onClick}
         className={cx(
-          "px-4 py-2 rounded-full font-medium text-sm transition-all whitespace-nowrap",
+          "px-2.5 py-1 rounded-full transition-all whitespace-nowrap h-7 flex items-center justify-center",
+          "text-xs leading-4 tracking-tighter font-medium",
           isActive
             ? "bg-bg-brand text-fg-inverted"
             : "bg-bg-3 text-fg-1 hover:bg-bg-2"

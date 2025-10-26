@@ -20,13 +20,13 @@ export const ExerciseCard = React.forwardRef<HTMLDivElement, ExerciseCardProps>(
     return (
       <div
         ref={ref}
-        className="flex flex-col gap-3 overflow-hidden"
+        className="flex flex-col overflow-hidden"
         style={{ width: "164px" }}
       >
         {/* Image placeholder - exactly 164x164 */}
         <div
           className="flex-shrink-0 bg-bg-3 rounded-xl flex items-center justify-center overflow-hidden"
-          style={{ width: "164px", height: "164px" }}
+          style={{ width: "164px", height: "164px", marginBottom: "2px" }}
         >
           {image ? (
             image
@@ -47,13 +47,17 @@ export const ExerciseCard = React.forwardRef<HTMLDivElement, ExerciseCardProps>(
           )}
         </div>
 
-        {/* Name - Inter medium, line-height 24, letter-spacing -4%, max 2 lines */}
+        {/* Name - Inter medium, line-height 24, letter-spacing -4%, max 2 lines, fixed height 48px */}
         <h3
-          className="text-sm font-medium text-fg-1 line-clamp-2"
+          className="text-base font-medium text-fg-1 line-clamp-2"
           style={{
             fontFamily: "Inter, sans-serif",
             lineHeight: "24px",
-            letterSpacing: "-4%"
+            letterSpacing: "-4%",
+            marginBottom: "6px",
+            height: "48px",
+            display: "flex",
+            alignItems: "flex-start"
           }}
         >
           {name}

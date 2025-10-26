@@ -11,27 +11,21 @@ export interface Exercise {
   description?: string;
 }
 
-interface StrapiImageData {
-  id: number;
-  attributes: {
-    url: string;
-    alternativeText?: string;
-    caption?: string;
-  };
-}
-
-interface StrapiExerciseAttributes {
-  name: string;
-  category: string;
-  description?: string;
-  image?: {
-    data: StrapiImageData | null;
-  };
-}
-
 interface StrapiExerciseItem {
   id: number;
-  attributes: StrapiExerciseAttributes;
+  documentId: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string;
+  muscleGroup?: {
+    id: number;
+    documentId: string;
+    name: string;
+    slug: string;
+  } | null;
 }
 
 interface StrapiResponse {
@@ -46,13 +40,20 @@ interface StrapiResponse {
   };
 }
 
+interface StrapiMuscleGroup {
+  id: number;
+  documentId: string;
+  name: string;
+  slug: string;
+}
+
 /**
  * Получить все упражнения из Strapi
  */
 export async function fetchExercises(): Promise<Exercise[]> {
   try {
     const response = await fetch(
-      `${STRAPI_URL}/api/exercises?populate=image`
+      `${STRAPI_URL}/api/exercises?populate=muscleGroup`
     );
 
     if (!response.ok) {
@@ -64,16 +65,9 @@ export async function fetchExercises(): Promise<Exercise[]> {
     // Преобразуем формат Strapi в наш формат
     return data.data.map((item: StrapiExerciseItem) => ({
       id: String(item.id),
-      name: item.attributes.name || "",
-      category: item.attributes.category || "",
-      image: item.attributes.image?.data
-        ? {
-            url: `${STRAPI_URL}${item.attributes.image.data.attributes.url}`,
-            alternativeText:
-              item.attributes.image.data.attributes.alternativeText || "",
-          }
-        : undefined,
-      description: item.attributes.description || "",
+      name: item.name || "",
+      category: item.muscleGroup?.name || "Unknown",
+      description: item.description || "",
     }));
   } catch (error) {
     console.error("Failed to fetch exercises from Strapi:", error);
@@ -89,9 +83,7 @@ export async function fetchExercisesByCategory(
 ): Promise<Exercise[]> {
   try {
     const response = await fetch(
-      `${STRAPI_URL}/api/exercises?filters[category][$eq]=${encodeURIComponent(
-        category
-      )}&populate=image`
+      `${STRAPI_URL}/api/exercises`
     );
 
     if (!response.ok) {
@@ -100,18 +92,12 @@ export async function fetchExercisesByCategory(
 
     const data: StrapiResponse = await response.json();
 
+    // TODO: Filter by muscleGroup when relation is available
     return data.data.map((item: StrapiExerciseItem) => ({
       id: String(item.id),
-      name: item.attributes.name || "",
-      category: item.attributes.category || "",
-      image: item.attributes.image?.data
-        ? {
-            url: `${STRAPI_URL}${item.attributes.image.data.attributes.url}`,
-            alternativeText:
-              item.attributes.image.data.attributes.alternativeText || "",
-          }
-        : undefined,
-      description: item.attributes.description || "",
+      name: item.name || "",
+      category: category,
+      description: item.description || "",
     }));
   } catch (error) {
     console.error("Failed to fetch exercises from Strapi:", error);
@@ -120,26 +106,22 @@ export async function fetchExercisesByCategory(
 }
 
 /**
- * Получить все категории
+ * Получить все категории (группы мышц)
  */
 export async function fetchCategories(): Promise<string[]> {
   try {
-    const response = await fetch(`${STRAPI_URL}/api/exercises`);
+    const response = await fetch(`${STRAPI_URL}/api/muscle-groups`);
 
     if (!response.ok) {
       throw new Error(`Strapi error: ${response.statusText}`);
     }
 
-    const data: StrapiResponse = await response.json();
+    const data = await response.json();
 
-    // Получаем уникальные категории
-    const categories = new Set<string>();
-    data.data.forEach((item: StrapiExerciseItem) => {
-      const category = item.attributes.category;
-      if (category) categories.add(category);
-    });
+    // Получаем названия всех групп мышц
+    const categories = data.data.map((item: StrapiMuscleGroup) => item.name);
 
-    return Array.from(categories).sort();
+    return categories.sort();
   } catch (error) {
     console.error("Failed to fetch categories from Strapi:", error);
     throw error;
