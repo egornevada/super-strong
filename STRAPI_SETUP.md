@@ -2,45 +2,52 @@
 
 Этот проект использует Strapi CMS для управления данными упражнений.
 
-## Установка Strapi
+Strapi уже установлен в папке `../super-strong-cms` на одном уровне с основным проектом.
 
-### 1. Создать новый проект Strapi
+## Запуск Strapi
 
-```bash
-npm create strapi-app@latest super-strong-cms -- --ts
-```
-
-### 2. Запустить Strapi
+Из папки `super-strong-cms` запустите:
 
 ```bash
-cd super-strong-cms
 npm run develop
 ```
 
-Strapi будет доступен на `http://localhost:1337`
+Strapi будет доступен на `http://localhost:1337` и автоматически откроет админ панель в браузере
 
 ## Настройка контента
 
-### Создать Content Type "Exercise"
+### Контент тип "Exercise" уже создан!
 
-1. Перейти в Admin Panel (`http://localhost:1337/admin`)
-2. Нажать на "Content-Type Builder"
-3. Создать новый Collection Type "Exercise" с полями:
+Контент тип автоматически создан скриптом `scripts/create-content-type.js`. Он содержит следующие поля:
 
-| Поле | Тип | Обязательно |
-|------|-----|------------|
-| name | String | Да |
-| category | String | Да |
-| description | Text | Нет |
-| image | Media | Нет |
+| Поле | Тип | Описание |
+|------|-----|---------|
+| name | String | Название упражнения |
+| category | String | Категория (например: "Грудь", "Спина") |
+| description | Text | Описание упражнения |
+| image | Media | Изображение упражнения |
 
-### Установить права доступа
+### Добавить упражнения
 
-1. В админ панели перейти в "Settings" → "Users & Permissions" → "Roles"
+1. Откройте админ панель Strapi: `http://localhost:1337/admin`
+2. В левом меню найдите "Exercise"
+3. Нажмите "Create new entry"
+4. Заполните данные упражнения и нажмите "Save"
+
+Или используйте готовый скрипт для заполнения данными:
+```bash
+cd super-strong-cms
+node scripts/seed-exercises.js
+```
+
+### Установить права доступа (важно!)
+
+1. В админ панели перейти в "Settings" → "Users & Permissions Plugin" → "Roles"
 2. Отредактировать роль "Public"
-3. В разделе "Exercise" включить:
-   - `find` (получить список)
-   - `findOne` (получить одно упражнение)
+3. Найти "Exercise" и включить:
+   - ✅ find (получить список)
+   - ✅ findOne (получить одно упражнение)
+4. Сохранить изменения
 
 ## Переменные окружения
 
