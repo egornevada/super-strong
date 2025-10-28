@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { HeaderWithBackButton, Button, TrackCard, type Set } from '../components';
-import { type Exercise } from '../services/strapiApi';
+import { type Exercise } from '../services/directusApi';
 
 interface SelectedDate {
   day: number;

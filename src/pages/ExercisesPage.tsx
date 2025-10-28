@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { FilterPill, ExerciseCard, Button, HeaderWithBackButton, StickyTagsBar } from '../components';
-import { fetchExercises, fetchCategories, type Exercise } from '../services/strapiApi';
+import { fetchExercises, fetchCategories, type Exercise } from '../services/directusApi';
 
 interface SelectedDate {
   day: number;

@@ -4,7 +4,7 @@ import { ExercisesPage } from './pages/ExercisesPage';
 import { StorybookPage } from './pages/StorybookPage';
 import { CalendarPage } from './pages/CalendarPage';
 import { MyExercisesPage } from './pages/MyExercisesPage';
-import { type Exercise } from './services/strapiApi';
+import { type Exercise } from './services/directusApi';
 import { type Set } from './components';
 
 type PageType = 'exercises' | 'storybook' | 'calendar' | 'myExercises';
