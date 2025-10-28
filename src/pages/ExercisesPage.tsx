@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { FilterPill, ExerciseCard, Button, HeaderWithBackButton, StickyTagsBar } from '../components';
+import { FilterPill, ExerciseCard, Button, HeaderWithBackButton, StickyTagsBar, ErrorPage } from '../components';
 import { fetchExercises, fetchCategories, type Exercise } from '../services/directusApi';
 
 interface SelectedDate {
@@ -54,28 +54,6 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
   useEffect(() => {
     setSelectedExercises(initialSelectedIds);
   }, [initialSelectedIds]);
-
-  // Если нет выбранной даты, показываем пустую страницу
-  if (!selectedDate) {
-    return (
-      <div className="w-full h-full bg-bg-1 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-fg-2 text-lg">Выберите дату в календаре</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Обработка ошибки загрузки
-  if (error && !loading) {
-    return (
-      <div className="w-full h-full bg-bg-1 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-fg-2 text-lg">{error}</p>
-        </div>
-      </div>
-    );
-  }
 
   const handleSelectExercise = (id: string) => {
     setSelectedExercises((prev) =>
@@ -146,6 +124,29 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
     'Ноя.',
     'Дек.',
   ];
+
+  // Если нет выбранной даты, показываем сообщение
+  if (!selectedDate) {
+    return (
+      <div className="w-full h-full bg-bg-1 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-fg-2 text-lg">Выберите дату в календаре</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Если ошибка загрузки, показываем ErrorPage
+  if (error && !loading) {
+    return (
+      <ErrorPage
+        title="Не удается загрузить упражнения"
+        message="Проверьте подключение к интернету или попробуйте позже."
+        onBack={onBack}
+        showBackButton={!!onBack}
+      />
+    );
+  }
 
   return (
     <div className="w-full h-full bg-bg-3 flex flex-col">

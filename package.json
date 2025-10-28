@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "setup:directus": "node setup-directus.js"
   },
   "dependencies": {
     "@emotion/cache": "^11.14.0",

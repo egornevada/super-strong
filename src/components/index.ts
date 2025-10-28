@@ -17,3 +17,7 @@ export type { ExerciseCardProps, TrackCardProps, Set } from './widgets';
 // Modals
 export { SetModal } from './modals';
 export type { SetModalProps } from './modals';
+
+// Error page
+export { ErrorPage } from './ErrorPage';
+export type { ErrorPageProps } from './ErrorPage';
