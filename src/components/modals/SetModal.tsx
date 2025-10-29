@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Button } from '../main/Button';
+import { TextField } from '../TextField';
 
 export interface SetModalProps {
   isOpen: boolean;
@@ -38,10 +39,10 @@ export const SetModal = React.forwardRef<HTMLDivElement, SetModalProps>(
     return (
       <div
         ref={ref}
-        className="fixed inset-0 bg-black/50 flex items-end z-50"
+        className="fixed inset-0 bg-black/50 flex items-end justify-center z-50 sm:px-6"
       >
         {/* Modal content - bottom sheet style */}
-        <div className="w-full bg-bg-1" style={{ padding: '12px', borderRadius: '16px 16px 0 0' }}>
+        <div className="w-full bg-bg-1 max-w-[640px]" style={{ padding: '16px', borderRadius: '16px 16px 0 0' }}>
           {/* Set number label */}
           <p
             className="text-fg-3"
@@ -74,31 +75,23 @@ export const SetModal = React.forwardRef<HTMLDivElement, SetModalProps>(
           </h2>
 
           {/* Form fields */}
-          <div style={{ marginBottom: '12px' }}>
+          <div style={{ marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {/* Reps input */}
-            <input
-              type="number"
+            <TextField
+              label="Повторы"
               value={reps}
-              onChange={(e) => setReps(e.target.value)}
-              placeholder="Повторы"
-              className="w-full px-4 py-3 bg-bg-2 border border-stroke-1 rounded-2xl text-fg-1 placeholder-fg-2 mb-3"
-              style={{
-                fontFamily: 'Inter, sans-serif',
-                fontSize: '14px'
-              }}
+              onChange={setReps}
+              type="text"
+              inputMode="numeric"
             />
 
             {/* Weight input */}
-            <input
-              type="number"
+            <TextField
+              label="Вес (кг)"
               value={weight}
-              onChange={(e) => setWeight(e.target.value)}
-              placeholder="Вес (кг)"
-              className="w-full px-4 py-3 bg-bg-2 border border-stroke-1 rounded-2xl text-fg-1 placeholder-fg-2"
-              style={{
-                fontFamily: 'Inter, sans-serif',
-                fontSize: '14px'
-              }}
+              onChange={setWeight}
+              type="text"
+              inputMode="decimal"
             />
           </div>
 

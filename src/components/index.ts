@@ -21,3 +21,7 @@ export type { SetModalProps } from './modals';
 // Error page
 export { ErrorPage } from './ErrorPage';
 export type { ErrorPageProps } from './ErrorPage';
+
+// Form components
+export { TextField } from './TextField';
+export type { TextFieldProps } from './TextField';

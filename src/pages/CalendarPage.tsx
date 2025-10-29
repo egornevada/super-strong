@@ -5,9 +5,10 @@ import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 interface CalendarPageProps {
   onDayClick?: (day: number, month: number, year: number) => void;
   workoutDays?: number[];
+  onSettings?: () => void;
 }
 
-export function CalendarPage({ onDayClick, workoutDays = [] }: CalendarPageProps) {
+export function CalendarPage({ onDayClick, workoutDays = [], onSettings }: CalendarPageProps) {
   const today = new Date();
 
   const handleDayClick = (day: number) => {
@@ -41,6 +42,7 @@ export function CalendarPage({ onDayClick, workoutDays = [] }: CalendarPageProps
                 leftIcon={<SettingsRoundedIcon />}
                 aria-label="Settings"
                 iconOnly
+                onClick={onSettings}
               />
             </>
           }

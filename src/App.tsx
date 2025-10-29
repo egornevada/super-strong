@@ -149,6 +149,14 @@ export default function App() {
     }, 300);
   };
 
+  const handleGoToStorybook = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setCurrentPage('storybook');
+      setIsClosing(false);
+    }, 300);
+  };
+
   return (
     <div className="flex items-center justify-center w-full h-screen bg-bg-3" style={{ height: '100dvh' }}>
       {/* Responsive mobile viewport container
@@ -163,6 +171,7 @@ export default function App() {
           <CalendarPage
             onDayClick={handleDayClick}
             workoutDays={workoutDays}
+            onSettings={handleGoToStorybook}
           />
         </div>
 
@@ -194,7 +203,12 @@ export default function App() {
         </div>
 
         {/* Storybook */}
-        {currentPage === 'storybook' && <StorybookPage />}
+        <div
+          style={{ display: currentPage === 'storybook' ? 'flex' : 'none' }}
+          className={`w-full h-full flex-1 ${currentPage === 'storybook' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
+        >
+          <StorybookPage />
+        </div>
       </div>
 
     </div>

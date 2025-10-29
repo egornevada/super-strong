@@ -94,3 +94,8 @@ html, body {
 .dissolve-out {
   animation: dissolveOut 0.3s ease-in-out forwards;
 }
+
+/* TextField placeholder styling */
+input::placeholder {
+  color: var(--fg-3);
+}
