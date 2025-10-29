@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Header, Calendar, Button, Weekdays } from '../components';
 import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';

@@ -52,7 +52,7 @@ export default function App() {
         newTrackedSets.set(ex.id, ex.trackSets);
       });
       setExercisesWithTrackedSets(newTrackedSets);
-      setSelectedExercises(savedExercises.map(({ trackSets, ...ex }) => ex));
+      setSelectedExercises(savedExercises.map(({ ...ex }) => ex));
       setCurrentPage('myExercises');
     } else {
       // Иначе переходим на ExercisesPage для выбора упражнений
@@ -141,7 +141,7 @@ export default function App() {
     setExercisesWithTrackedSets(newTrackedSets);
 
     // Обновляем selectedExercises перед переходом (тип Exercise)
-    const exercisesToSelect: Exercise[] = exercises.map(({ trackSets, ...ex }) => ex as Exercise);
+    const exercisesToSelect: Exercise[] = exercises.map(({ ...ex }) => ex as Exercise);
     setSelectedExercises(exercisesToSelect);
     setAnimationType('dissolve');
     setIsClosing(true);
