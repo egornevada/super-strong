@@ -150,15 +150,15 @@ export default function App() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-bg-3">
+    <div className="flex items-center justify-center w-full h-screen bg-bg-3" style={{ height: '100dvh' }}>
       {/* Responsive mobile viewport container
-          - Below 640px: full height screen, no margins/padding
-          - Above 640px: 24px top/bottom margins, fills remaining height */}
-      <div className="relative w-full max-w-[640px] max-sm:min-h-screen sm:h-[calc(100vh-48px)] sm:my-6 sm:rounded-[24px] sm:p-3 bg-bg-3 overflow-hidden">
+          - Below 640px: full viewport height with no gaps
+          - Above 640px: 24px margins, max height, centered */}
+      <div className="relative w-full max-w-[640px] max-sm:h-full sm:h-[calc(100vh-48px)] sm:my-6 bg-bg-3 flex flex-col max-sm:p-0 sm:p-3 sm:rounded-[24px]" style={{ maxHeight: '100dvh' }}>
         {/* Calendar - always in DOM, just hidden */}
         <div
           style={{ display: currentPage === 'calendar' ? 'flex' : 'none' }}
-          className={`w-full h-full ${currentPage === 'calendar' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
+          className={`w-full h-full flex-1 ${currentPage === 'calendar' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
         >
           <CalendarPage
             onDayClick={handleDayClick}
@@ -169,7 +169,7 @@ export default function App() {
         {/* Exercises */}
         <div
           style={{ display: currentPage === 'exercises' ? 'flex' : 'none' }}
-          className={`w-full h-full ${currentPage === 'exercises' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
+          className={`w-full h-full flex-1 ${currentPage === 'exercises' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
         >
           <ExercisesPage
             selectedDate={selectedDate}
@@ -182,7 +182,7 @@ export default function App() {
         {/* My Exercises */}
         <div
           style={{ display: currentPage === 'myExercises' ? 'flex' : 'none' }}
-          className={`w-full h-full ${currentPage === 'myExercises' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
+          className={`w-full h-full flex-1 ${currentPage === 'myExercises' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
         >
           <MyExercisesPage
             selectedExercises={getExercisesWithTrackedSets()}

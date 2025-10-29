@@ -21,7 +21,7 @@ export function CalendarPage({ onDayClick, workoutDays = [] }: CalendarPageProps
       {/* Outer page background - bg-bg-3 */}
 
       {/* Content container - bg-bg-1 with rounded corners */}
-      <div className="flex-1 bg-bg-1 rounded-3xl shadow-card overflow-hidden flex flex-col">
+      <div className="flex-1 bg-bg-1 rounded-3xl shadow-card flex flex-col overflow-hidden">
         {/* Header with logo and buttons */}
         <Header
           rightSlot={
