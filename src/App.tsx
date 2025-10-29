@@ -154,7 +154,7 @@ export default function App() {
       {/* Responsive mobile viewport container
           - Below 640px: full height screen, no margins/padding
           - Above 640px: 24px top/bottom margins, fills remaining height */}
-      <div className="relative w-full max-w-[640px] max-sm:h-screen sm:h-[calc(100vh-48px)] sm:my-6 sm:rounded-[24px] sm:p-3 bg-bg-3 overflow-hidden">
+      <div className="relative w-full max-w-[640px] max-sm:min-h-screen sm:h-[calc(100vh-48px)] sm:my-6 sm:rounded-[24px] sm:p-3 bg-bg-3 overflow-hidden">
         {/* Calendar - always in DOM, just hidden */}
         <div
           style={{ display: currentPage === 'calendar' ? 'flex' : 'none' }}
