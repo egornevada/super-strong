@@ -217,8 +217,8 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
                       {category}
                     </h2>
 
-                    {/* Exercises grid */}
-                    <div className="grid grid-cols-2 gap-4 mb-6">
+                    {/* Exercises grid - 2 columns on mobile, 3 columns on larger screens */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
                       {categoryExercises.map((exercise) => (
                         <ExerciseCard
                           key={exercise.id}

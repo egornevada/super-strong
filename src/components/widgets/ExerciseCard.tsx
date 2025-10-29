@@ -20,13 +20,12 @@ export const ExerciseCard = React.forwardRef<HTMLDivElement, ExerciseCardProps>(
     return (
       <div
         ref={ref}
-        className="flex flex-col overflow-hidden"
-        style={{ width: "164px" }}
+        className="flex flex-col overflow-hidden w-full"
       >
-        {/* Image placeholder - exactly 164x164 */}
+        {/* Image placeholder - square aspect ratio, responsive width */}
         <div
-          className="flex-shrink-0 bg-bg-3 rounded-xl flex items-center justify-center overflow-hidden"
-          style={{ width: "164px", height: "164px", marginBottom: "2px" }}
+          className="flex-shrink-0 bg-bg-3 rounded-xl flex items-center justify-center overflow-hidden w-full"
+          style={{ aspectRatio: "1", marginBottom: "2px" }}
         >
           {image ? (
             image
