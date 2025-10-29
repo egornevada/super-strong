@@ -8,7 +8,6 @@ import { type Exercise } from './services/directusApi';
 import { type Set } from './components';
 
 type PageType = 'exercises' | 'storybook' | 'calendar' | 'myExercises';
-type AnimationType = 'slide' | 'dissolve';
 
 interface SelectedDate {
   day: number;
@@ -24,13 +23,12 @@ export default function App() {
   useTelegram();
   const [currentPage, setCurrentPage] = useState<PageType>('calendar');
   const [selectedDate, setSelectedDate] = useState<SelectedDate | null>(null);
-  const [isClosing, setIsClosing] = useState(false);
-  const [animationType, setAnimationType] = useState<AnimationType>('slide');
   const [calendarScrollPosition, setCalendarScrollPosition] = useState(0);
   const [selectedExercises, setSelectedExercises] = useState<Exercise[]>([]);
   const [exercisesWithTrackedSets, setExercisesWithTrackedSets] = useState<Map<string, Set[]>>(new Map());
   const [workoutDays, setWorkoutDays] = useState<number[]>([]);
   const [savedWorkouts, setSavedWorkouts] = useState<Map<string, ExerciseWithTrackSets[]>>(new Map());
+  const [isClosing, setIsClosing] = useState(false);
 
   const handleDayClick = (day: number, month: number, year: number) => {
     // Сохраняем позицию скролла календаря перед переходом
@@ -46,7 +44,6 @@ export default function App() {
 
     if (savedExercises && savedExercises.length > 0) {
       // Если есть сохраненная тренировка - переходим на MyExercisesPage
-      // Восстанавливаем trackSets из сохраненной тренировки
       const newTrackedSets = new Map<string, Set[]>();
       savedExercises.forEach(ex => {
         newTrackedSets.set(ex.id, ex.trackSets);
@@ -79,9 +76,12 @@ export default function App() {
   };
 
   const handleGoToMyExercises = (exercises: Exercise[]) => {
-    setSelectedExercises(exercises);
-    setAnimationType('dissolve');
-    setCurrentPage('myExercises');
+    setIsClosing(true);
+    setTimeout(() => {
+      setSelectedExercises(exercises);
+      setCurrentPage('myExercises');
+      setIsClosing(false);
+    }, 300);
   };
 
   // Получить упражнения с trackSets для MyExercisesPage
@@ -115,7 +115,6 @@ export default function App() {
   };
 
   const handleBackFromMyExercises = () => {
-    setAnimationType('slide');
     setIsClosing(true);
     setTimeout(() => {
       setCurrentPage('calendar');
@@ -143,7 +142,6 @@ export default function App() {
     // Обновляем selectedExercises перед переходом (тип Exercise)
     const exercisesToSelect: Exercise[] = exercises.map(({ ...ex }) => ex as Exercise);
     setSelectedExercises(exercisesToSelect);
-    setAnimationType('dissolve');
     setIsClosing(true);
     setTimeout(() => {
       setCurrentPage('exercises');
@@ -152,93 +150,53 @@ export default function App() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-900">
-      {/* Mobile viewport container - 375x700px */}
-      <div className="relative w-[375px] h-[700px] bg-bg-1 shadow-2xl overflow-hidden border-8 border-gray-800">
+    <div className="flex items-center justify-center min-h-screen bg-bg-3">
+      {/* Responsive mobile viewport container
+          - Below 640px: full height screen, no margins/padding
+          - Above 640px: 24px top/bottom margins, fills remaining height */}
+      <div className="relative w-full max-w-[640px] max-sm:h-screen sm:h-[calc(100vh-48px)] sm:my-6 sm:rounded-[24px] sm:p-3 bg-bg-3 overflow-hidden">
         {/* Calendar - always in DOM, just hidden */}
-        <div style={{ display: currentPage === 'calendar' ? 'flex' : 'none' }} className="w-full h-full">
+        <div
+          style={{ display: currentPage === 'calendar' ? 'flex' : 'none' }}
+          className={`w-full h-full ${currentPage === 'calendar' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
+        >
           <CalendarPage
             onDayClick={handleDayClick}
             workoutDays={workoutDays}
           />
         </div>
 
-        {/* Exercises - with animation */}
-        {currentPage === 'exercises' && (
-          <div className={`w-full h-full ${
-            animationType === 'dissolve'
-              ? isClosing ? 'dissolve-out' : 'dissolve-in'
-              : isClosing ? 'slide-out-down' : 'slide-in-up'
-          }`}>
-            <ExercisesPage
-              selectedDate={selectedDate}
-              onBack={handleBackFromExercises}
-              onStartTraining={handleGoToMyExercises}
-              initialSelectedIds={selectedExercises.map((ex) => ex.id)}
-            />
-          </div>
-        )}
+        {/* Exercises */}
+        <div
+          style={{ display: currentPage === 'exercises' ? 'flex' : 'none' }}
+          className={`w-full h-full ${currentPage === 'exercises' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
+        >
+          <ExercisesPage
+            selectedDate={selectedDate}
+            onBack={handleBackFromExercises}
+            onStartTraining={handleGoToMyExercises}
+            initialSelectedIds={selectedExercises.map((ex) => ex.id)}
+          />
+        </div>
 
-        {/* My Exercises - with animation */}
-        {currentPage === 'myExercises' && (
-          <div className={`w-full h-full ${
-            animationType === 'dissolve'
-              ? isClosing ? 'dissolve-out' : 'dissolve-in'
-              : isClosing ? 'slide-out-down' : 'slide-in-up'
-          }`}>
-            <MyExercisesPage
-              selectedExercises={getExercisesWithTrackedSets()}
-              selectedDate={selectedDate}
-              onBack={handleBackFromMyExercises}
-              onSelectMoreExercises={handleSelectMoreExercisesFromMyPage}
-              onSave={handleSaveTraining}
-            />
-          </div>
-        )}
+        {/* My Exercises */}
+        <div
+          style={{ display: currentPage === 'myExercises' ? 'flex' : 'none' }}
+          className={`w-full h-full ${currentPage === 'myExercises' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
+        >
+          <MyExercisesPage
+            selectedExercises={getExercisesWithTrackedSets()}
+            selectedDate={selectedDate}
+            onBack={handleBackFromMyExercises}
+            onSelectMoreExercises={handleSelectMoreExercisesFromMyPage}
+            onSave={handleSaveTraining}
+          />
+        </div>
 
         {/* Storybook */}
         {currentPage === 'storybook' && <StorybookPage />}
       </div>
 
-      {/* Page Switcher - floating buttons (outside viewport) */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
-        <button
-          onClick={() => setCurrentPage('calendar')}
-          className={`w-14 h-14 rounded-full font-bold text-lg shadow-lg transition-all active:scale-95 flex items-center justify-center ${
-            currentPage === 'calendar'
-              ? 'bg-bg-brand text-fg-inverted shadow-xl'
-              : 'bg-bg-3 text-fg-1 hover:bg-bg-2'
-          }`}
-          aria-label="Calendar"
-          title="Go to Calendar"
-        >
-          📅
-        </button>
-        <button
-          onClick={() => setCurrentPage('exercises')}
-          className={`w-14 h-14 rounded-full font-bold text-lg shadow-lg transition-all active:scale-95 flex items-center justify-center ${
-            currentPage === 'exercises'
-              ? 'bg-bg-brand text-fg-inverted shadow-xl'
-              : 'bg-bg-3 text-fg-1 hover:bg-bg-2'
-          }`}
-          aria-label="Exercises"
-          title="Go to Exercises"
-        >
-          💪
-        </button>
-        <button
-          onClick={() => setCurrentPage('storybook')}
-          className={`w-14 h-14 rounded-full font-bold text-lg shadow-lg transition-all active:scale-95 flex items-center justify-center ${
-            currentPage === 'storybook'
-              ? 'bg-bg-brand text-fg-inverted shadow-xl'
-              : 'bg-bg-3 text-fg-1 hover:bg-bg-2'
-          }`}
-          aria-label="Storybook"
-          title="Go to Storybook"
-        >
-          📖
-        </button>
-      </div>
     </div>
   );
 }

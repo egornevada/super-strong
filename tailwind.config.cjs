@@ -6,6 +6,9 @@ module.exports = {
   ],
   theme: {
     extend: {
+      boxShadow: {
+        'card': '0 4px 12px 0 rgba(0, 0, 0, 0.08)',
+      },
       fontFamily: {
         ui: 'var(--font-ui)',
       },

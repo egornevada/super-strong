@@ -153,7 +153,7 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
       {/* Outer page background - bg-bg-3 */}
 
       {/* Content container - bg-bg-1 with rounded corners */}
-      <div className="flex-1 bg-bg-1 rounded-3xl overflow-hidden flex flex-col">
+      <div className="flex-1 bg-bg-1 rounded-3xl overflow-hidden flex flex-col shadow-card">
         {/* Header with back button */}
         <HeaderWithBackButton
           backButtonLabel={`${selectedDate.day} ${monthNames[selectedDate.month]}`}
@@ -257,7 +257,7 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
 
       {/* Action button - separate block that pushes content up */}
       {selectedExercises.length > 0 && (
-        <div className="mt-2 px-4 py-4 bg-bg-1 rounded-t-3xl">
+        <div className="mt-2 px-4 py-4 bg-bg-1 rounded-3xl shadow-card">
           <Button
             priority="primary"
             tone="brand"
