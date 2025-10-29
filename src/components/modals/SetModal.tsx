@@ -12,18 +12,51 @@ export interface SetModalProps {
 
 export const SetModal = React.forwardRef<HTMLDivElement, SetModalProps>(
   ({ isOpen, exerciseName, setNumber, onClose, onAdd }, ref) => {
+    const getStorageKey = (key: string) => `setModal_${exerciseName}_${key}`;
+
     const [reps, setReps] = React.useState<string>('10');
     const [weight, setWeight] = React.useState<string>('');
+    const [weightError, setWeightError] = React.useState<boolean>(false);
+
+    // Load saved reps value when modal opens or exercise changes
+    React.useEffect(() => {
+      if (isOpen) {
+        const savedReps = localStorage.getItem(getStorageKey('reps'));
+        if (savedReps) {
+          setReps(savedReps);
+        } else {
+          setReps('10');
+        }
+        setWeight('');
+        setWeightError(false);
+      }
+    }, [isOpen, exerciseName]);
 
     const handleAdd = () => {
+      if (!weight.trim()) {
+        setWeightError(true);
+        return;
+      }
+
+      // Normalize comma to dot for parsing
+      const normalizedWeight = weight.replace(',', '.');
       const repsNum = parseInt(reps, 10);
-      const weightNum = parseFloat(weight);
+      const weightNum = parseFloat(normalizedWeight);
 
       if (!isNaN(repsNum) && !isNaN(weightNum)) {
+        // Save reps value for this exercise
+        localStorage.setItem(getStorageKey('reps'), reps);
         onAdd?.(repsNum, weightNum);
-        // Reset form
-        setReps('10');
+        // Reset weight field
         setWeight('');
+        setWeightError(false);
+      }
+    };
+
+    const handleWeightChange = (value: string) => {
+      setWeight(value);
+      if (value.trim()) {
+        setWeightError(false);
       }
     };
 
@@ -31,6 +64,7 @@ export const SetModal = React.forwardRef<HTMLDivElement, SetModalProps>(
       // Reset form
       setReps('10');
       setWeight('');
+      setWeightError(false);
       onClose?.();
     };
 
@@ -89,9 +123,10 @@ export const SetModal = React.forwardRef<HTMLDivElement, SetModalProps>(
             <TextField
               label="Вес (кг)"
               value={weight}
-              onChange={setWeight}
+              onChange={handleWeightChange}
               type="text"
               inputMode="decimal"
+              error={weightError}
             />
           </div>
 
