@@ -33,8 +33,13 @@ html, body {
 }
 
 /* Hide scrollbar but keep scrolling functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;      /* Firefox */
+}
+
 .scrollbar-hide::-webkit-scrollbar {
-  display: none;
+  display: none;              /* Chrome, Safari and Opera */
 }
 
 /* Slide in animation from bottom */

@@ -24,8 +24,8 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [showStickyBar, setShowStickyBar] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const firstCategoryTitleRef = useRef<HTMLDivElement>(null);
   const categoryRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
-  const cloudRef = useRef<HTMLDivElement>(null);
 
   // Загружаем данные при монтировании компонента
   useEffect(() => {
@@ -33,15 +33,24 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
       try {
         setLoading(true);
         setError(null);
-        const [exercisesData, categoriesData] = await Promise.all([
-          fetchExercises(),
-          fetchCategories(),
-        ]);
+        const exercisesData = await fetchExercises();
         setExercises(exercisesData);
-        setCategories(categoriesData.length > 0 ? categoriesData : ['Грудь']);
+
+        // Пытаемся загрузить категории
+        try {
+          const categoriesData = await fetchCategories();
+          setCategories(categoriesData.length > 0 ? categoriesData : ['Грудь']);
+        } catch (categoryErr) {
+          console.warn('Failed to load categories, deriving from exercises:', categoryErr);
+          // Извлекаем уникальные категории из упражнений
+          const uniqueCategories = Array.from(
+            new Set(exercisesData.map((ex) => ex.category))
+          ).sort();
+          setCategories(uniqueCategories.length > 0 ? uniqueCategories : ['Грудь']);
+        }
       } catch (err) {
-        console.error('Error loading data:', err);
-        setError('Ошибка при загрузке данных');
+        console.error('Error loading exercises:', err);
+        setError('Ошибка при загрузке упражнений');
       } finally {
         setLoading(false);
       }
@@ -70,46 +79,37 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
     }
   };
 
-  // Отслеживаем скролл и обновляем активную категорию + видимость sticky bar
+  // Слушаем скролл и показываем sticky bar когда первый заголовок уходит из видимости
+  // Зависимость от loading гарантирует что listener подвешится ПОСЛЕ загрузки данных
   useEffect(() => {
+    if (loading) {
+      return; // Не подвешиваем listener пока загружаются данные
+    }
+
     const handleScroll = () => {
-      if (!contentRef.current || !cloudRef.current) return;
-
-      const scrollTop = contentRef.current.scrollTop;
-
-      // Скрываем sticky bar если облако видно (находится в верхней части контейнера)
-      // Облако находится в начале контента, поэтому когда скролл минимален - оно видно
-      setShowStickyBar(scrollTop > 120); // 120px - примерная высота облака + margin
-
-      // Ищем категорию которая видна на экране с учетом offset скроллинга
-      // Точка проверки: на высоте sticky bar (примерно 140px от верхней части скроллинга)
-      const checkPoint = scrollTop + 140;
-      let foundCategory: string | null = null;
-
-      for (const category of categories) {
-        const element = categoryRefs.current[category];
-        if (element) {
-          const elementTop = element.offsetTop;
-
-          // Ищем категорию которая находится выше или на checkPoint
-          // и отслеживаем последнюю такую категорию (т.е. самую видимую)
-          if (elementTop <= checkPoint) {
-            foundCategory = category;
-          }
-        }
+      if (!contentRef.current || !firstCategoryTitleRef.current) {
+        return;
       }
 
-      setActiveCategory(foundCategory);
+      // Позиция первого заголовка относительно контейнера
+      const firstTitleTop = firstCategoryTitleRef.current.getBoundingClientRect().top;
+      const containerTop = contentRef.current.getBoundingClientRect().top;
+
+      // Если заголовок выше контейнера - показываем sticky bar
+      const shouldShow = firstTitleTop < containerTop;
+      setShowStickyBar(shouldShow);
     };
 
     const container = contentRef.current;
     if (container) {
       container.addEventListener('scroll', handleScroll);
-      return () => container.removeEventListener('scroll', handleScroll);
+      return () => {
+        container.removeEventListener('scroll', handleScroll);
+      };
     }
-  }, [categories]);
+  }, [loading]);
 
-  // РЕЖИМ ВЫБОРА упражнений с плавающей кнопкой
+  // Форматирование даты
   const monthNames = [
     'Янв.',
     'Фев.',
@@ -124,6 +124,10 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
     'Ноя.',
     'Дек.',
   ];
+
+  const dateLabel = selectedDate
+    ? `${selectedDate.day} ${monthNames[selectedDate.month]}`
+    : '';
 
   // Если нет выбранной даты, показываем сообщение
   if (!selectedDate) {
@@ -149,25 +153,26 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
   }
 
   return (
-    <div className="w-full h-full bg-bg-3 flex flex-col">
-      {/* Outer page background - bg-bg-3 */}
-
-      {/* Content container - bg-bg-1 with rounded corners */}
-      <div className="flex-1 bg-bg-1 rounded-3xl flex flex-col overflow-hidden shadow-card">
-        {/* Header with back button */}
-        <HeaderWithBackButton
-          backButtonLabel={`${selectedDate.day} ${monthNames[selectedDate.month]}`}
-          onBack={onBack}
-        />
-
-        {/* Sticky tags bar - appears on scroll */}
-        {showStickyBar && (
+    <div className="w-full h-full bg-bg-3 flex flex-col relative">
+      {/* Sticky tags bar - appears when scrolling */}
+      {showStickyBar && (
+        <div className="w-full bg-bg-1 border-b border-stroke-1 z-50">
           <StickyTagsBar
             categories={categories}
             activeCategory={activeCategory}
             onCategoryClick={scrollToCategory}
           />
-        )}
+        </div>
+      )}
+
+      {/* Content container - bg-bg-1 with rounded corners */}
+      <div className="flex-1 bg-bg-1 rounded-3xl flex flex-col overflow-hidden shadow-card relative">
+
+        {/* Header with back button */}
+        <HeaderWithBackButton
+          backButtonLabel={dateLabel}
+          onBack={onBack}
+        />
 
         {/* Scrollable content */}
         <div
@@ -175,7 +180,7 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
           className="flex-1 overflow-y-auto"
         >
           {/* Category filter cloud - scrolls with content */}
-          <div ref={cloudRef} className="flex flex-wrap gap-2 px-3 pt-2 pb-3 mb-8">
+          <div className="flex flex-wrap gap-2 px-3 pt-2 pb-3 mb-8">
             {categories.map((category) => (
               <FilterPill
                 key={category}
@@ -191,16 +196,24 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
             </div>
           ) : (
             <div className="px-3">
-              {categories.map((category) => {
+              {categories.map((category, index) => {
                 const categoryExercises = exercises.filter(
                   (ex) => ex.category === category
                 );
+                const isFirstCategory = index === 0;
 
                 return (
                   <div
                     key={category}
                     ref={(el) => {
-                      if (el) categoryRefs.current[category] = el;
+                      if (el) {
+                        categoryRefs.current[category] = el;
+                        // Для первой категории также установим ref в firstCategoryTitleRef
+                        if (isFirstCategory) {
+                          console.log('Setting firstCategoryTitleRef for first category:', category);
+                          firstCategoryTitleRef.current = el;
+                        }
+                      }
                     }}
                     className="mb-8"
                   >

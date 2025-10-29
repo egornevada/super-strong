@@ -24,7 +24,7 @@ export const StickyTagsBar = React.forwardRef<HTMLDivElement, StickyTagsBarProps
     return (
       <div
         ref={ref}
-        className="sticky top-[72px] bg-bg-1 z-20 border-b border-stroke-1 py-2"
+        className="sticky top-0 bg-bg-1 z-20 border-b border-stroke-1 py-2"
       >
         <div
           ref={scrollContainerRef}
