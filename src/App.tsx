@@ -6,8 +6,11 @@ import { CalendarPage } from './pages/CalendarPage';
 import { MyExercisesPage } from './pages/MyExercisesPage';
 import { type Exercise } from './services/directusApi';
 import { type Set } from './components';
+import { ExerciseDetailSheetRenderer } from './components/SheetRenderer';
+import { ProfileSheetRenderer } from './components/ProfileSheetRenderer';
+import { SettingsSheetRenderer } from './components/SettingsSheetRenderer';
 
-type PageType = 'exercises' | 'storybook' | 'calendar' | 'myExercises';
+type PageType = 'calendar' | 'exercises' | 'tracking' | 'storybook';
 
 interface SelectedDate {
   day: number;
@@ -50,7 +53,7 @@ export default function App() {
       });
       setExercisesWithTrackedSets(newTrackedSets);
       setSelectedExercises(savedExercises.map(({ ...ex }) => ex));
-      setCurrentPage('myExercises');
+      setCurrentPage('tracking');
     } else {
       // Иначе переходим на ExercisesPage для выбора упражнений
       setSelectedExercises([]);
@@ -79,7 +82,7 @@ export default function App() {
     setIsClosing(true);
     setTimeout(() => {
       setSelectedExercises(exercises);
-      setCurrentPage('myExercises');
+      setCurrentPage('tracking');
       setIsClosing(false);
     }, 300);
   };
@@ -157,6 +160,7 @@ export default function App() {
     }, 300);
   };
 
+
   return (
     <div className="flex items-center justify-center w-full h-screen bg-bg-3" style={{ height: '100dvh' }}>
       {/* Responsive mobile viewport container
@@ -171,7 +175,6 @@ export default function App() {
           <CalendarPage
             onDayClick={handleDayClick}
             workoutDays={workoutDays}
-            onSettings={handleGoToStorybook}
           />
         </div>
 
@@ -188,10 +191,10 @@ export default function App() {
           />
         </div>
 
-        {/* My Exercises */}
+        {/* Tracking (My Exercises) */}
         <div
-          style={{ display: currentPage === 'myExercises' ? 'flex' : 'none' }}
-          className={`w-full h-full flex-1 ${currentPage === 'myExercises' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
+          style={{ display: currentPage === 'tracking' ? 'flex' : 'none' }}
+          className={`w-full h-full flex-1 ${currentPage === 'tracking' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
         >
           <MyExercisesPage
             selectedExercises={getExercisesWithTrackedSets()}
@@ -211,6 +214,10 @@ export default function App() {
         </div>
       </div>
 
+      {/* Sheet overlays */}
+      <ExerciseDetailSheetRenderer />
+      <ProfileSheetRenderer />
+      <SettingsSheetRenderer />
     </div>
   );
 }

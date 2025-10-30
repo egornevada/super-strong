@@ -9,19 +9,26 @@ export interface Set {
 }
 
 export interface TrackCardProps {
+  id?: string;
   name: string;
   image?: React.ReactNode;
   sets?: Set[];
   onAddSet?: (reps: number, weight: number) => void;
+  onImageClick?: (id: string) => void;
 }
 
 export const TrackCard = React.forwardRef<HTMLDivElement, TrackCardProps>(
-  ({ name, image, sets = [], onAddSet }, ref) => {
+  ({ id = '', name, image, sets = [], onAddSet, onImageClick }, ref) => {
     const [showModal, setShowModal] = React.useState(false);
 
     const handleAddSet = (reps: number, weight: number) => {
       onAddSet?.(reps, weight);
       setShowModal(false);
+    };
+
+    const handleImageClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onImageClick?.(id);
     };
     return (
       <div
@@ -33,8 +40,9 @@ export const TrackCard = React.forwardRef<HTMLDivElement, TrackCardProps>(
         <div className="flex items-center gap-2" style={{ gap: '8px' }}>
           {/* Image - 44x44 */}
           <div
-            className="flex-shrink-0 bg-bg-3 rounded-lg flex items-center justify-center overflow-hidden"
+            className="flex-shrink-0 bg-bg-3 rounded-lg flex items-center justify-center overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
             style={{ width: '44px', height: '44px' }}
+            onClick={handleImageClick}
           >
             {image ? (
               image

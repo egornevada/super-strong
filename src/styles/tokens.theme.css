@@ -15,7 +15,7 @@
   --bg-3: var(--g-neutral-grey-92);
   --bg-inverted: var(--g-neutral-grey-14);
   --bg-controls: var(--g-neutral-grey-74);
-  --bg-disabled: var(--g-neutral-grey-86);
+  --bg-disabled: var(--g-neutral-grey-86); 
   --bg-brand: var(--g-blue-Main);
   --bg-success: var(--g-green-Main);
   --bg-error: var(--g-red-Main);

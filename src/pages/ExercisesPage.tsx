@@ -1,6 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import { FilterPill, ExerciseCard, Button, HeaderWithBackButton, StickyTagsBar, ErrorPage } from '../components';
 import { fetchExercises, fetchCategories, type Exercise } from '../services/directusApi';
+import { useExerciseDetailSheet } from '../contexts/SheetContext';
+
+const STICKY_TOP = 64; // высота фиксированной шапки
 
 interface SelectedDate {
   day: number;
@@ -16,6 +19,7 @@ interface ExercisesPageProps {
 }
 
 export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSelectedIds = [] }: ExercisesPageProps) {
+  const { openExerciseDetail } = useExerciseDetailSheet();
   const [selectedExercises, setSelectedExercises] = useState<string[]>(initialSelectedIds);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [categories, setCategories] = useState<string[]>(['Грудь']);
@@ -23,9 +27,12 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
   const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [showStickyBar, setShowStickyBar] = useState(false);
+
   const contentRef = useRef<HTMLDivElement>(null);
-  const firstCategoryTitleRef = useRef<HTMLDivElement>(null);
-  const categoryRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+
+  const handleExerciseImageClick = (exerciseId: string) => {
+    openExerciseDetail(exerciseId);
+  };
 
   // Загружаем данные при монтировании компонента
   useEffect(() => {
@@ -70,44 +77,76 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
     );
   };
 
-  const scrollToCategory = (category: string) => {
-    const categoryElement = categoryRefs.current[category];
-    if (categoryElement && contentRef.current) {
-      const offsetTop = categoryElement.offsetTop;
-      // Offset учитывает высоту header (72px) + sticky bar (48px) + небольшой padding
-      contentRef.current.scrollTop = offsetTop - 140;
-    }
-  };
+  const scrollToSection = useCallback((categoryId: string) => {
+    const root = contentRef.current;
+    if (!root) return;
+    const el = root.querySelector<HTMLElement>(
+      `[data-category-id="${CSS.escape(categoryId)}"]`
+    );
+    if (!el) return;
 
-  // Слушаем скролл и показываем sticky bar когда первый заголовок уходит из видимости
-  // Зависимость от loading гарантирует что listener подвешится ПОСЛЕ загрузки данных
+    root.scrollTo({
+      top: el.offsetTop - STICKY_TOP,
+      behavior: 'smooth',
+    });
+  }, []);
+
+  // Observer for sentinel element to show sticky bar when cloud passes
   useEffect(() => {
-    if (loading) {
-      return; // Не подвешиваем listener пока загружаются данные
-    }
+    if (loading) return;
+    const root = contentRef.current;
+    if (!root) return;
 
-    const handleScroll = () => {
-      if (!contentRef.current || !firstCategoryTitleRef.current) {
-        return;
+    const sentinel = root.querySelector<HTMLElement>('#cloud-sentinel');
+    if (!sentinel) return;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          setShowStickyBar(!entry.isIntersecting);
+        });
+      },
+      {
+        root,
+        threshold: 0,
       }
+    );
 
-      // Позиция первого заголовка относительно контейнера
-      const firstTitleTop = firstCategoryTitleRef.current.getBoundingClientRect().top;
-      const containerTop = contentRef.current.getBoundingClientRect().top;
-
-      // Если заголовок выше контейнера - показываем sticky bar
-      const shouldShow = firstTitleTop < containerTop;
-      setShowStickyBar(shouldShow);
-    };
-
-    const container = contentRef.current;
-    if (container) {
-      container.addEventListener('scroll', handleScroll);
-      return () => {
-        container.removeEventListener('scroll', handleScroll);
-      };
-    }
+    io.observe(sentinel);
+    return () => io.disconnect();
   }, [loading]);
+
+  // Spy по секциям - отслеживаем активную категорию
+  useLayoutEffect(() => {
+    if (loading) return;
+    const root = contentRef.current;
+    if (!root) return;
+
+    const sections = Array.from(
+      root.querySelectorAll<HTMLElement>('[data-category-id]')
+    );
+    if (!sections.length) return;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (!visible.length) return;
+
+        const id = (visible[0].target as HTMLElement).dataset.categoryId;
+        if (id) setActiveCategory(id);
+      },
+      {
+        root,
+        threshold: [0, 0.25, 0.5],
+        rootMargin: `-${STICKY_TOP + 8}px 0px -60% 0px`,
+      }
+    );
+
+    sections.forEach((s) => io.observe(s));
+    return () => io.disconnect();
+  }, [loading, categories.length]);
 
   // Форматирование даты
   const monthNames = [
@@ -160,13 +199,13 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
           <StickyTagsBar
             categories={categories}
             activeCategory={activeCategory}
-            onCategoryClick={scrollToCategory}
+            onCategoryClick={scrollToSection}
           />
         </div>
       )}
 
       {/* Content container - bg-bg-1 with rounded corners */}
-      <div className="flex-1 bg-bg-1 rounded-3xl flex flex-col overflow-hidden shadow-card relative">
+      <div className="flex-1 w-full bg-bg-1 rounded-3xl flex flex-col overflow-hidden shadow-card relative">
 
         {/* Header with back button */}
         <HeaderWithBackButton
@@ -186,36 +225,30 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
                 key={category}
                 label={category}
                 isActive={false}
-                onClick={() => scrollToCategory(category)}
+                onClick={() => scrollToSection(category)}
               />
             ))}
           </div>
+
+          {/* Sentinel for sticky bar trigger */}
+          <div id="cloud-sentinel" style={{ height: '1px', visibility: 'hidden' }} />
+
           {loading ? (
             <div className="py-8 text-center">
               <p className="text-fg-2">Загрузка упражнений...</p>
             </div>
           ) : (
-            <div className="px-3">
-              {categories.map((category, index) => {
+            <>
+              {categories.map((category) => {
                 const categoryExercises = exercises.filter(
                   (ex) => ex.category === category
                 );
-                const isFirstCategory = index === 0;
 
                 return (
                   <div
                     key={category}
-                    ref={(el) => {
-                      if (el) {
-                        categoryRefs.current[category] = el;
-                        // Для первой категории также установим ref в firstCategoryTitleRef
-                        if (isFirstCategory) {
-                          console.log('Setting firstCategoryTitleRef for first category:', category);
-                          firstCategoryTitleRef.current = el;
-                        }
-                      }
-                    }}
-                    className="mb-8"
+                    data-category-id={category}
+                    className="px-3 mb-8"
                   >
                     {/* Category title */}
                     <h2
@@ -247,6 +280,7 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
                             ) : undefined
                           }
                           onSelect={handleSelectExercise}
+                          onImageClick={handleExerciseImageClick}
                           isSelected={selectedExercises.includes(exercise.id)}
                         />
                       ))}
@@ -260,7 +294,7 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
                   </div>
                 );
               })}
-            </div>
+            </>
           )}
 
           {/* Invisible spacer for button - 88px */}

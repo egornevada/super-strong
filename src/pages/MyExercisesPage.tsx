@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { HeaderWithBackButton, Button, TrackCard, type Set } from '../components';
 import { type Exercise } from '../services/directusApi';
+import { useExerciseDetailSheet } from '../contexts/SheetContext';
 
 interface SelectedDate {
   day: number;
@@ -27,11 +28,16 @@ export function MyExercisesPage({
   onSelectMoreExercises,
   onSave
 }: MyExercisesPageProps) {
+  const { openExerciseDetail } = useExerciseDetailSheet();
   const [exercisesWithSets, setExercisesWithSets] = useState<ExerciseWithTrackSets[]>(selectedExercises);
 
   useEffect(() => {
     setExercisesWithSets(selectedExercises);
   }, [selectedExercises]);
+
+  const handleExerciseImageClick = (exerciseId: string) => {
+    openExerciseDetail(exerciseId);
+  };
 
   const monthNames = [
     'Янв.',
@@ -106,6 +112,7 @@ export function MyExercisesPage({
               {exercisesWithSets.map((exercise, index) => (
                 <TrackCard
                   key={exercise.id}
+                  id={exercise.id}
                   name={exercise.name}
                   image={
                     exercise.image ? (
@@ -118,6 +125,7 @@ export function MyExercisesPage({
                   }
                   sets={exercise.trackSets}
                   onAddSet={(reps, weight) => handleAddSet(index, reps, weight)}
+                  onImageClick={handleExerciseImageClick}
                 />
               ))}
 

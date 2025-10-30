@@ -8,13 +8,19 @@ export interface ExerciseCardProps {
   name: string;
   image?: React.ReactNode;
   onSelect?: (id: string) => void;
+  onImageClick?: (id: string) => void;
   isSelected?: boolean;
 }
 
 export const ExerciseCard = React.forwardRef<HTMLDivElement, ExerciseCardProps>(
-  ({ id, name, image, onSelect, isSelected = false }, ref) => {
+  ({ id, name, image, onSelect, onImageClick, isSelected = false }, ref) => {
     const handleClick = () => {
       onSelect?.(id);
+    };
+
+    const handleImageClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onImageClick?.(id);
     };
 
     return (
@@ -24,8 +30,9 @@ export const ExerciseCard = React.forwardRef<HTMLDivElement, ExerciseCardProps>(
       >
         {/* Image placeholder - square aspect ratio, responsive width */}
         <div
-          className="flex-shrink-0 bg-bg-3 rounded-xl flex items-center justify-center overflow-hidden w-full"
+          className="flex-shrink-0 bg-bg-3 rounded-xl flex items-center justify-center overflow-hidden w-full cursor-pointer hover:opacity-80 transition-opacity"
           style={{ aspectRatio: "1", marginBottom: "2px" }}
+          onClick={handleImageClick}
         >
           {image ? (
             image

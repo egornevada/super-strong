@@ -25,3 +25,10 @@ export type { ErrorPageProps } from './ErrorPage';
 // Form components
 export { TextField } from './TextField';
 export type { TextFieldProps } from './TextField';
+
+// Sheet components
+export { SheetOverlay } from './SheetOverlay';
+
+// Page layout
+export { PageLayout } from './PageLayout';
+export type { PageLayoutProps } from './PageLayout';

@@ -1,14 +1,17 @@
 import { Header, Calendar, Button, Weekdays } from '../components';
 import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
+import { useProfileSheet } from '../contexts/ProfileSheetContext';
+import { useSettingsSheet } from '../contexts/SettingsSheetContext';
 
 interface CalendarPageProps {
   onDayClick?: (day: number, month: number, year: number) => void;
   workoutDays?: number[];
-  onSettings?: () => void;
 }
 
-export function CalendarPage({ onDayClick, workoutDays = [], onSettings }: CalendarPageProps) {
+export function CalendarPage({ onDayClick, workoutDays = [] }: CalendarPageProps) {
+  const { openProfileSheet } = useProfileSheet();
+  const { openSettingsSheet } = useSettingsSheet();
   const today = new Date();
 
   const handleDayClick = (day: number) => {
@@ -34,6 +37,7 @@ export function CalendarPage({ onDayClick, workoutDays = [], onSettings }: Calen
                 leftIcon={<AccountCircleRoundedIcon />}
                 aria-label="Profile"
                 iconOnly
+                onClick={openProfileSheet}
               />
               <Button
                 priority="secondary"
@@ -42,7 +46,7 @@ export function CalendarPage({ onDayClick, workoutDays = [], onSettings }: Calen
                 leftIcon={<SettingsRoundedIcon />}
                 aria-label="Settings"
                 iconOnly
-                onClick={onSettings}
+                onClick={openSettingsSheet}
               />
             </>
           }

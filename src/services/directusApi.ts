@@ -9,6 +9,8 @@ export interface Exercise {
     alternativeText?: string;
   };
   description?: string;
+  difficulty?: string;
+  muscleGroups?: string[];
 }
 
 interface DirectusExercise {
@@ -138,6 +140,40 @@ export async function fetchCategories(): Promise<string[]> {
     return categories.sort();
   } catch (error) {
     console.error("Failed to fetch categories from Directus:", error);
+    throw error;
+  }
+}
+
+/**
+ * Получить одно упражнение по ID
+ */
+export async function fetchExerciseById(id: string): Promise<Exercise> {
+  try {
+    const response = await fetch(
+      `${DIRECTUS_URL}/items/exercises/${id}?fields=*,category.id,category.name,image.id,image.filename_disk`
+    );
+
+    if (!response.ok) {
+      throw new Error(`Directus error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const item: DirectusExercise = data.data;
+
+    return {
+      id: item.id,
+      name: item.name || "",
+      category: item.category?.name || "Без категории",
+      description: item.description || "",
+      image: item.image
+        ? {
+            url: getImageUrl(item.image.id),
+            alternativeText: item.image.title || item.name,
+          }
+        : undefined,
+    };
+  } catch (error) {
+    console.error("Failed to fetch exercise by ID from Directus:", error);
     throw error;
   }
 }
