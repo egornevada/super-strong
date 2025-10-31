@@ -33,6 +33,13 @@ interface TelegramWebApp {
   showAlert: (message: string) => void;
   showConfirm: (message: string, callback?: (confirmed: boolean) => void) => void;
   showPopup: (options: Record<string, unknown>) => void;
+  BackButton?: {
+    show: () => void;
+    hide: () => void;
+    onClick?: (callback: () => void) => void;
+  };
+  onEvent?: (eventType: string, callback: () => void) => void;
+  offEvent?: (eventType: string, callback: () => void) => void;
 }
 
 declare global {
@@ -111,5 +118,66 @@ export function showTelegramConfirm(
   } else {
     const confirmed = confirm(message);
     onConfirm?.(confirmed);
+  }
+}
+
+/**
+ * Close the Telegram Mini App
+ */
+export function closeTelegramApp() {
+  const app = getTelegramWebApp();
+  if (app) {
+    app.close();
+  } else {
+    window.close();
+  }
+}
+
+/**
+ * Show/hide Telegram back button and handle clicks
+ */
+export function setupTelegramBackButton(onBack?: () => void) {
+  const app = getTelegramWebApp();
+  if (!app) return;
+
+  app.BackButton?.show?.();
+
+  if (onBack) {
+    app.onEvent?.('backButtonClicked', onBack);
+  }
+
+  return () => {
+    app.BackButton?.hide?.();
+    if (onBack) {
+      app.offEvent?.('backButtonClicked', onBack);
+    }
+  };
+}
+
+/**
+ * Delete user account via API and close app
+ * Returns true if successful, false otherwise
+ */
+export async function deleteAccountAndClose(): Promise<boolean> {
+  try {
+    // Import API client
+    const { api } = await import('./api');
+
+    // Call delete account endpoint
+    // This will be handled by the backend when implemented
+    await api.post('/danger/delete-account');
+
+    // Clear all local data
+    localStorage.clear();
+    sessionStorage.clear();
+
+    // Close the app
+    closeTelegramApp();
+
+    return true;
+  } catch (error) {
+    console.error('[Telegram] Failed to delete account:', error);
+    showTelegramAlert('Ошибка при удалении аккаунта. Попробуйте позже.');
+    return false;
   }
 }

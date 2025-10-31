@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useTelegram } from './hooks/useTelegram';
 import { useSettingsSheet } from './contexts/SettingsSheetContext';
+import { syncPendingRequests, isOnline } from './lib/api';
+import { logger } from './lib/logger';
 import { ExercisesPage } from './pages/ExercisesPage';
 import { StorybookPage } from './pages/StorybookPage';
 import { CalendarPage } from './pages/CalendarPage';
@@ -27,6 +29,24 @@ export default function App() {
   useTelegram();
   const { setOnGoToStorybook } = useSettingsSheet();
   const [currentPage, setCurrentPage] = useState<PageType>('calendar');
+
+  // Sync pending requests when app loads or comes back online
+  useEffect(() => {
+    const handleOnline = async () => {
+      if (isOnline()) {
+        logger.info('App is online, syncing pending requests...');
+        const { synced, failed } = await syncPendingRequests();
+        if (synced > 0 || failed > 0) {
+          logger.info(`Sync complete: ${synced} synced, ${failed} failed`);
+        }
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    handleOnline(); // Try sync on initial load
+
+    return () => window.removeEventListener('online', handleOnline);
+  }, []);
   const [selectedDate, setSelectedDate] = useState<SelectedDate | null>(null);
   const [calendarScrollPosition, setCalendarScrollPosition] = useState(0);
   const [selectedExercises, setSelectedExercises] = useState<Exercise[]>([]);
