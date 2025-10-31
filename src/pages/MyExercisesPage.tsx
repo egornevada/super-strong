@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HeaderWithBackButton, Button, TrackCard, type Set } from '../components';
 import { type Exercise } from '../services/directusApi';
 import { useExerciseDetailSheet } from '../contexts/SheetContext';
@@ -34,10 +34,38 @@ export function MyExercisesPage({
   const { openExerciseDetail } = useExerciseDetailSheet();
   const [exercisesWithSets, setExercisesWithSets] = useState<ExerciseWithTrackSets[]>(selectedExercises);
   const [isSaving, setIsSaving] = useState(false);
+  const saveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     setExercisesWithSets(selectedExercises);
   }, [selectedExercises]);
+
+  // Auto-save with debounce when exercises change
+  useEffect(() => {
+    if (!selectedDate || exercisesWithSets.length === 0) return;
+
+    // Check if there are any sets to save
+    const hasAnySet = exercisesWithSets.some(ex => ex.trackSets.length > 0);
+    if (!hasAnySet) return;
+
+    logger.debug('Auto-save timer started', { exerciseCount: exercisesWithSets.length });
+
+    // Clear previous timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Set new timeout for auto-save (2 seconds debounce)
+    saveTimeoutRef.current = setTimeout(() => {
+      handleAutoSaveWorkout();
+    }, 2000);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [exercisesWithSets, selectedDate]);
 
   const handleExerciseImageClick = (exerciseId: string) => {
     openExerciseDetail(exerciseId);
@@ -61,7 +89,9 @@ export function MyExercisesPage({
   const handleAddSet = (index: number, reps: number, weight: number) => {
     const updated = [...exercisesWithSets];
     updated[index].trackSets.push({ reps, weight });
+    logger.debug('Set added', { exerciseName: updated[index].name, reps, weight });
     setExercisesWithSets(updated);
+    // Auto-save will be triggered by useEffect
   };
 
   const handleSelectMoreExercises = () => {
@@ -70,15 +100,7 @@ export function MyExercisesPage({
     onSelectMoreExercises?.(exercisesWithSets);
   };
 
-  const handleBackToCalendar = async () => {
-    // Auto-save when going back to calendar
-    if (selectedDate && exercisesWithSets.length > 0) {
-      await handleSaveWorkout();
-    }
-    onBack?.();
-  };
-
-  const handleSaveWorkout = async () => {
+  const handleAutoSaveWorkout = async () => {
     if (!selectedDate || exercisesWithSets.length === 0) return;
 
     try {
@@ -91,10 +113,11 @@ export function MyExercisesPage({
         .map(ex => convertExerciseToApiFormat(ex.id, ex.trackSets));
 
       if (apiExercises.length === 0) {
-        logger.warn('No exercises with sets to save');
-        showTelegramAlert('Добавьте хотя бы один подход перед сохранением');
+        logger.debug('No exercises with sets to save (auto-save skipped)');
         return;
       }
+
+      logger.info('Auto-saving workout...', { dateStr, exerciseCount: apiExercises.length });
 
       // Save to server
       const workoutId = await saveWorkout(dateStr, apiExercises);
@@ -102,14 +125,23 @@ export function MyExercisesPage({
       // Also call local callback for local state management
       onSave?.(exercisesWithSets, selectedDate);
 
-      logger.info('Workout saved with server sync', { workoutId, exerciseCount: apiExercises.length });
-      showTelegramAlert('Тренировка сохранена!');
+      logger.info('Workout auto-saved successfully', { workoutId, exerciseCount: apiExercises.length });
     } catch (error) {
-      logger.error('Failed to save workout', error);
-      showTelegramAlert('Ошибка при сохранении тренировки. Попробуйте позже.');
+      logger.error('Failed to auto-save workout', error);
+      // Silently fail on auto-save, don't show alert
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleBackToCalendar = async () => {
+    // If there are pending saves, wait for them
+    if (saveTimeoutRef.current) {
+      logger.info('Waiting for pending save before going back...');
+      clearTimeout(saveTimeoutRef.current);
+      await handleAutoSaveWorkout();
+    }
+    onBack?.();
   };
 
   if (!selectedDate) {
@@ -167,17 +199,12 @@ export function MyExercisesPage({
                 />
               ))}
 
-              {/* Save button */}
-              <Button
-                priority="primary"
-                tone="brand"
-                size="md"
-                className="w-full mt-6"
-                onClick={handleSaveWorkout}
-                disabled={isSaving || exercisesWithSets.every(ex => ex.trackSets.length === 0)}
-              >
-                {isSaving ? 'Сохранение...' : 'Сохранить тренировку'}
-              </Button>
+              {/* Auto-save indicator */}
+              {isSaving && (
+                <div className="mt-4 text-center">
+                  <p className="text-fg-2 text-sm">Сохраняется...</p>
+                </div>
+              )}
 
               {/* Bottom padding */}
               <div className="h-6" />

@@ -141,6 +141,7 @@ async function request<T>(
 
   // Add Telegram initData if available
   const initData = getTelegramInitData();
+  const hasInitData = !!initData;
   if (initData) {
     headers.set('x-telegram-init-data', initData);
   }
@@ -150,6 +151,16 @@ async function request<T>(
     headers.set('Content-Type', 'application/json');
   }
 
+  const method = init.method || 'GET';
+
+  // Debug logging
+  console.log(`[API] ${method} ${url}`, {
+    hasInitData,
+    hasBody: !!init.body,
+    bodyType: typeof init.body,
+    bodyPreview: init.body ? (typeof init.body === 'string' ? init.body.substring(0, 100) : 'object') : undefined
+  });
+
   try {
     const res = await fetch(url, {
       ...init,
@@ -157,19 +168,26 @@ async function request<T>(
       cache: 'no-cache'
     });
 
+    console.log(`[API] ${method} ${url} - Status: ${res.status}`);
+
     if (!res.ok) {
-      throw new Error(`API ${res.status}: ${await res.text().catch(() => res.statusText)}`);
+      const errorText = await res.text().catch(() => res.statusText);
+      console.error(`[API] Error ${res.status}:`, errorText);
+      throw new Error(`API ${res.status}: ${errorText}`);
     }
 
     const data = await res.json() as T;
+    console.log(`[API] ${method} ${url} - Success`, data);
 
     // Cache successful read requests
-    if (init.method === 'GET' || !init.method) {
+    if (method === 'GET') {
       setCache(path, data, 5 * 60 * 1000); // 5 min TTL for GET
     }
 
     return data;
   } catch (error) {
+    console.error(`[API] ${method} ${url} - Failed:`, error);
+
     // Try to return cached data on error
     const cached = getCache(path);
     if (cached !== null) {
@@ -178,9 +196,9 @@ async function request<T>(
     }
 
     // If write request, save for later sync
-    if (init.method && init.method !== 'GET') {
-      savePendingRequest(init.method, path, init.body);
-      console.warn(`[API] Write request saved for later sync: ${init.method} ${path}`);
+    if (method !== 'GET') {
+      savePendingRequest(method, path, init.body);
+      console.warn(`[API] Write request saved for later sync: ${method} ${path}`);
     }
 
     throw error;

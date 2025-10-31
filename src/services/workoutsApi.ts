@@ -79,14 +79,18 @@ export async function getWorkoutsForDate(date: string): Promise<SavedWorkout[]> 
  */
 export async function saveWorkout(date: string, exercises: ExerciseData[]): Promise<string> {
   try {
-    logger.debug('Saving workout', { date, exerciseCount: exercises.length });
+    logger.debug('Saving workout', { date, exerciseCount: exercises.length, exercises });
 
     const data: WorkoutData = {
       date,
       exercises
     };
 
+    logger.info('Sending workout to API...', { endpoint: '/workouts', payload: data });
+
     const response = await api.post<{ success: boolean; workoutId: string }>('/workouts', data);
+
+    logger.info('API response received', { response });
 
     if (response.success) {
       logger.info('Workout saved successfully', { date, workoutId: response.workoutId });
@@ -95,7 +99,7 @@ export async function saveWorkout(date: string, exercises: ExerciseData[]): Prom
 
     throw new Error('Server returned success: false');
   } catch (error) {
-    logger.error('Failed to save workout', { date, error });
+    logger.error('Failed to save workout', { date, exercises: exercises.length, error });
     throw error;
   }
 }
