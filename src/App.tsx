@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTelegram } from './hooks/useTelegram';
+import { useSettingsSheet } from './contexts/SettingsSheetContext';
 import { ExercisesPage } from './pages/ExercisesPage';
 import { StorybookPage } from './pages/StorybookPage';
 import { CalendarPage } from './pages/CalendarPage';
@@ -24,12 +25,13 @@ interface ExerciseWithTrackSets extends Exercise {
 
 export default function App() {
   useTelegram();
+  const { setOnGoToStorybook } = useSettingsSheet();
   const [currentPage, setCurrentPage] = useState<PageType>('calendar');
   const [selectedDate, setSelectedDate] = useState<SelectedDate | null>(null);
   const [calendarScrollPosition, setCalendarScrollPosition] = useState(0);
   const [selectedExercises, setSelectedExercises] = useState<Exercise[]>([]);
   const [exercisesWithTrackedSets, setExercisesWithTrackedSets] = useState<Map<string, Set[]>>(new Map());
-  const [workoutDays, setWorkoutDays] = useState<number[]>([]);
+  const [workoutDays, setWorkoutDays] = useState<string[]>([]);
   const [savedWorkouts, setSavedWorkouts] = useState<Map<string, ExerciseWithTrackSets[]>>(new Map());
   const [isClosing, setIsClosing] = useState(false);
 
@@ -102,9 +104,9 @@ export default function App() {
     newSavedWorkouts.set(dateKey, exercises);
     setSavedWorkouts(newSavedWorkouts);
 
-    // Добавляем день в workoutDays если его там нет
+    // Добавляем полную дату в workoutDays если её там нет
     setWorkoutDays((prev) =>
-      prev.includes(date.day) ? prev : [...prev, date.day]
+      prev.includes(dateKey) ? prev : [...prev, dateKey]
     );
 
     console.log('Training saved:', { exercises, date });
@@ -160,6 +162,18 @@ export default function App() {
     }, 300);
   };
 
+  const handleBackFromStorybook = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setCurrentPage('calendar');
+      setIsClosing(false);
+    }, 300);
+  };
+
+  useEffect(() => {
+    setOnGoToStorybook(() => handleGoToStorybook);
+  }, [setOnGoToStorybook]);
+
 
   return (
     <div className="flex items-center justify-center w-full h-screen bg-bg-3" style={{ height: '100dvh' }}>
@@ -210,7 +224,7 @@ export default function App() {
           style={{ display: currentPage === 'storybook' ? 'flex' : 'none' }}
           className={`w-full h-full flex-1 ${currentPage === 'storybook' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
         >
-          <StorybookPage />
+          <StorybookPage onBack={handleBackFromStorybook} />
         </div>
       </div>
 

@@ -4,14 +4,16 @@ const cx = (...a: Array<string | false | undefined>) => a.filter(Boolean).join('
 
 export interface DayProps {
   day: number;
+  month: number;
+  year: number;
   isCurrentMonth?: boolean;
   isCurrentDay?: boolean;
   hasWorkout?: boolean;
-  onClick?: (day: number) => void;
+  onClick?: (day: number, month: number, year: number) => void;
 }
 
 export const Day = React.forwardRef<HTMLButtonElement, DayProps>(
-  ({ day, isCurrentMonth = true, isCurrentDay = false, hasWorkout = false, onClick }, ref) => {
+  ({ day, month, year, isCurrentMonth = true, isCurrentDay = false, hasWorkout = false, onClick }, ref) => {
     // Не показываем дни из других месяцев
     if (!isCurrentMonth) {
       return <div className="p-1" />;
@@ -32,7 +34,7 @@ export const Day = React.forwardRef<HTMLButtonElement, DayProps>(
       <div className="border-t" style={{ borderColor: 'var(--stroke-1)', padding: '4px' }}>
         <button
           ref={ref}
-          onClick={() => onClick?.(day)}
+          onClick={() => onClick?.(day, month, year)}
           className={cx(
             'group relative w-full flex flex-col items-center rounded-xl transition-all overflow-hidden',
             isCurrentDay

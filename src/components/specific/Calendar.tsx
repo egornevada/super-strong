@@ -4,8 +4,8 @@ import { Day } from './Day';
 export interface CalendarProps {
   month?: number;
   year?: number;
-  workoutDays?: number[];
-  onDayClick?: (day: number) => void;
+  workoutDays?: string[];
+  onDayClick?: (day: number, month: number, year: number) => void;
   onMonthChange?: (month: number, year: number) => void;
 }
 
@@ -191,7 +191,8 @@ export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
                   {/* Days of month */}
                   {monthDays.map((dayObj, idx) => {
                     const isCurrentDay = dayObj.isCurrentMonth && dayObj.day === currentDayForMonth;
-                    const hasWorkout = dayObj.isCurrentMonth && workoutDays.includes(dayObj.day);
+                    const dateKey = `${dayObj.day}-${m}-${y}`;
+                    const hasWorkout = dayObj.isCurrentMonth && workoutDays.includes(dateKey);
 
                     return (
                       <div
@@ -200,6 +201,8 @@ export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
                       >
                         <Day
                           day={dayObj.day}
+                          month={m}
+                          year={y}
                           isCurrentMonth={dayObj.isCurrentMonth}
                           isCurrentDay={isCurrentDay}
                           hasWorkout={hasWorkout}

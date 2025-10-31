@@ -8,6 +8,8 @@ interface SettingsSheetContextType {
   sheet: SettingsSheetState
   openSettingsSheet: () => void
   closeSettingsSheet: () => void
+  onGoToStorybook?: () => void
+  setOnGoToStorybook: (handler: (() => void) | undefined) => void
 }
 
 const SettingsSheetContext = createContext<SettingsSheetContextType | null>(null)
@@ -16,6 +18,7 @@ export function SettingsSheetProvider({ children }: { children: ReactNode }) {
   const [sheet, setSheet] = useState<SettingsSheetState>({
     isOpen: false,
   })
+  const [onGoToStorybook, setOnGoToStorybook] = useState<(() => void) | undefined>()
 
   const openSettingsSheet = () => {
     setSheet({
@@ -30,7 +33,7 @@ export function SettingsSheetProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <SettingsSheetContext.Provider value={{ sheet, openSettingsSheet, closeSettingsSheet }}>
+    <SettingsSheetContext.Provider value={{ sheet, openSettingsSheet, closeSettingsSheet, onGoToStorybook, setOnGoToStorybook }}>
       {children}
     </SettingsSheetContext.Provider>
   )

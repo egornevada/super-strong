@@ -1,11 +1,14 @@
 import { useState } from 'react'
 import { PageLayout } from '../components/PageLayout'
+import { useTelegram } from '../hooks/useTelegram'
 
 interface SettingsPageProps {
   onClose?: () => void
+  onGoToStorybook?: () => void
 }
 
-export function SettingsPage({ onClose }: SettingsPageProps) {
+export function SettingsPage({ onClose, onGoToStorybook }: SettingsPageProps) {
+  const { user: telegramUser } = useTelegram()
   const [settings, setSettings] = useState({
     notifications: true,
     darkMode: false,
@@ -19,8 +22,24 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
     }))
   }
 
+  const getUserDisplayInfo = () => {
+    if (telegramUser?.username) {
+      return `@${telegramUser.username}`
+    } else if (telegramUser?.first_name) {
+      return telegramUser.first_name
+    } else {
+      return 'Гость, браузер. Прогресс не сохранится'
+    }
+  }
+
   return (
     <PageLayout title="Настройки" onClose={onClose}>
+      {/* User info section */}
+      <div className="mb-8 p-4 bg-bg-2 rounded-lg">
+        <h2 className="text-fg-3 text-sm font-medium mb-2">Профиль</h2>
+        <p className="text-fg-1 font-medium">{getUserDisplayInfo()}</p>
+      </div>
+
       {/* Notifications section */}
       <div className="mb-8">
         <h2 className="text-fg-1 font-semibold mb-4">Уведомления</h2>
@@ -61,7 +80,10 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
       <div className="mb-8">
         <h2 className="text-fg-1 font-semibold mb-4">Разработка</h2>
         <button
-          onClick={() => {/* Navigate to Storybook */}}
+          onClick={() => {
+            onClose?.()
+            onGoToStorybook?.()
+          }}
           className="w-full py-3 px-4 bg-bg-2 hover:bg-bg-3 rounded-lg transition-colors text-fg-1 text-left font-medium"
         >
           Перейти в Storybook
