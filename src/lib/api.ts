@@ -3,7 +3,7 @@
  * Handles offline mode, retries, and logging
  */
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://strong.webtga.ru/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://strong.webtga.ru/workouts/api';
 const OFFLINE_CACHE_KEY = 'api_offline_cache';
 const PENDING_REQUESTS_KEY = 'api_pending_requests';
 

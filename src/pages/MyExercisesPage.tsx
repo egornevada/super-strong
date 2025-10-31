@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { HeaderWithBackButton, Button, TrackCard, type Set } from '../components';
 import { type Exercise } from '../services/directusApi';
 import { useExerciseDetailSheet } from '../contexts/SheetContext';
+import { saveWorkout, convertExerciseToApiFormat } from '../services/workoutsApi';
+import { logger } from '../lib/logger';
+import { showTelegramAlert } from '../lib/telegram';
 
 interface SelectedDate {
   day: number;
@@ -30,6 +33,7 @@ export function MyExercisesPage({
 }: MyExercisesPageProps) {
   const { openExerciseDetail } = useExerciseDetailSheet();
   const [exercisesWithSets, setExercisesWithSets] = useState<ExerciseWithTrackSets[]>(selectedExercises);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     setExercisesWithSets(selectedExercises);
@@ -66,12 +70,46 @@ export function MyExercisesPage({
     onSelectMoreExercises?.(exercisesWithSets);
   };
 
-  const handleBackToCalendar = () => {
+  const handleBackToCalendar = async () => {
     // Auto-save when going back to calendar
-    if (selectedDate) {
-      onSave?.(exercisesWithSets, selectedDate);
+    if (selectedDate && exercisesWithSets.length > 0) {
+      await handleSaveWorkout();
     }
     onBack?.();
+  };
+
+  const handleSaveWorkout = async () => {
+    if (!selectedDate || exercisesWithSets.length === 0) return;
+
+    try {
+      setIsSaving(true);
+      const dateStr = `${selectedDate.year}-${String(selectedDate.month + 1).padStart(2, '0')}-${String(selectedDate.day).padStart(2, '0')}`;
+
+      // Convert exercises to API format
+      const apiExercises = exercisesWithSets
+        .filter(ex => ex.trackSets.length > 0)
+        .map(ex => convertExerciseToApiFormat(ex.id, ex.trackSets));
+
+      if (apiExercises.length === 0) {
+        logger.warn('No exercises with sets to save');
+        showTelegramAlert('Добавьте хотя бы один подход перед сохранением');
+        return;
+      }
+
+      // Save to server
+      const workoutId = await saveWorkout(dateStr, apiExercises);
+
+      // Also call local callback for local state management
+      onSave?.(exercisesWithSets, selectedDate);
+
+      logger.info('Workout saved with server sync', { workoutId, exerciseCount: apiExercises.length });
+      showTelegramAlert('Тренировка сохранена!');
+    } catch (error) {
+      logger.error('Failed to save workout', error);
+      showTelegramAlert('Ошибка при сохранении тренировки. Попробуйте позже.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (!selectedDate) {
@@ -128,6 +166,18 @@ export function MyExercisesPage({
                   onImageClick={handleExerciseImageClick}
                 />
               ))}
+
+              {/* Save button */}
+              <Button
+                priority="primary"
+                tone="brand"
+                size="md"
+                className="w-full mt-6"
+                onClick={handleSaveWorkout}
+                disabled={isSaving || exercisesWithSets.every(ex => ex.trackSets.length === 0)}
+              >
+                {isSaving ? 'Сохранение...' : 'Сохранить тренировку'}
+              </Button>
 
               {/* Bottom padding */}
               <div className="h-6" />

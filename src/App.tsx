@@ -3,6 +3,7 @@ import { useTelegram } from './hooks/useTelegram';
 import { useSettingsSheet } from './contexts/SettingsSheetContext';
 import { syncPendingRequests, isOnline } from './lib/api';
 import { logger } from './lib/logger';
+import { getWorkoutsForDate } from './services/workoutsApi';
 import { ExercisesPage } from './pages/ExercisesPage';
 import { StorybookPage } from './pages/StorybookPage';
 import { CalendarPage } from './pages/CalendarPage';
@@ -30,7 +31,7 @@ export default function App() {
   const { setOnGoToStorybook } = useSettingsSheet();
   const [currentPage, setCurrentPage] = useState<PageType>('calendar');
 
-  // Sync pending requests when app loads or comes back online
+  // Sync pending requests and load workouts when app loads or comes back online
   useEffect(() => {
     const handleOnline = async () => {
       if (isOnline()) {
@@ -39,6 +40,9 @@ export default function App() {
         if (synced > 0 || failed > 0) {
           logger.info(`Sync complete: ${synced} synced, ${failed} failed`);
         }
+
+        // Load workouts for current month after sync
+        await loadWorkoutsForCurrentMonth();
       }
     };
 
@@ -47,6 +51,37 @@ export default function App() {
 
     return () => window.removeEventListener('online', handleOnline);
   }, []);
+
+  // Load workouts for the current month
+  const loadWorkoutsForCurrentMonth = async () => {
+    try {
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = today.getMonth();
+
+      // Load workouts for current month (just a sample - can be optimized)
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+      const workouts = await getWorkoutsForDate(dateStr);
+
+      // Extract unique days that have workouts
+      const daysWithWorkouts = new Set<string>();
+      workouts.forEach(workout => {
+        const parts = workout.workoutDate.split('-');
+        if (parts.length === 3) {
+          const day = parseInt(parts[2], 10);
+          const workoutMonth = parseInt(parts[1], 10) - 1;
+          const workoutYear = parseInt(parts[0], 10);
+          daysWithWorkouts.add(`${day}-${workoutMonth}-${workoutYear}`);
+        }
+      });
+
+      setWorkoutDays(Array.from(daysWithWorkouts));
+      logger.info('Workouts loaded from server', { count: workouts.length });
+    } catch (error) {
+      logger.error('Failed to load workouts from server', error);
+      // Silently fail - use local data if available
+    }
+  };
   const [selectedDate, setSelectedDate] = useState<SelectedDate | null>(null);
   const [calendarScrollPosition, setCalendarScrollPosition] = useState(0);
   const [selectedExercises, setSelectedExercises] = useState<Exercise[]>([]);
