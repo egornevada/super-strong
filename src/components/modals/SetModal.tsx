@@ -6,21 +6,60 @@ export interface SetModalProps {
   isOpen: boolean;
   exerciseName: string;
   setNumber: number;
+  mode?: 'create' | 'edit';
+  initialValues?: {
+    reps: number;
+    weight: number;
+  };
+  confirmLabel?: string;
   onClose?: () => void;
-  onAdd?: (reps: number, weight: number) => void;
+  onConfirm?: (reps: number, weight: number) => void;
 }
 
 export const SetModal = React.forwardRef<HTMLDivElement, SetModalProps>(
-  ({ isOpen, exerciseName, setNumber, onClose, onAdd }, ref) => {
+  (
+    {
+      isOpen,
+      exerciseName,
+      setNumber,
+      mode = 'create',
+      initialValues,
+      confirmLabel,
+      onClose,
+      onConfirm
+    },
+    ref
+  ) => {
     const getStorageKey = (key: string) => `setModal_${exerciseName}_${key}`;
 
     const [reps, setReps] = React.useState<string>('10');
     const [weight, setWeight] = React.useState<string>('');
     const [weightError, setWeightError] = React.useState<boolean>(false);
 
+    const isEditMode = mode === 'edit';
+
+    const getSetLabel = (order: number) => {
+      const lastTwo = order % 100;
+      if (lastTwo >= 11 && lastTwo <= 14) {
+        return `${order}-ый`;
+      }
+      const last = order % 10;
+      if (last === 1) return `${order}-ый`;
+      if (last === 2) return `${order}-ой`;
+      return `${order}-ий`;
+    };
+
     // Load saved reps value when modal opens or exercise changes
     React.useEffect(() => {
-      if (isOpen) {
+      if (!isOpen) return;
+
+      if (isEditMode && initialValues) {
+        setReps(initialValues.reps.toString());
+        const formattedWeight = Number.isInteger(initialValues.weight)
+          ? initialValues.weight.toString()
+          : initialValues.weight.toString().replace('.', ',');
+        setWeight(formattedWeight);
+      } else {
         const savedReps = localStorage.getItem(getStorageKey('reps'));
         if (savedReps) {
           setReps(savedReps);
@@ -28,11 +67,11 @@ export const SetModal = React.forwardRef<HTMLDivElement, SetModalProps>(
           setReps('10');
         }
         setWeight('');
-        setWeightError(false);
       }
-    }, [isOpen, exerciseName]);
+      setWeightError(false);
+    }, [isOpen, exerciseName, isEditMode, initialValues]);
 
-    const handleAdd = () => {
+    const handleConfirm = () => {
       if (!weight.trim()) {
         setWeightError(true);
         return;
@@ -46,7 +85,7 @@ export const SetModal = React.forwardRef<HTMLDivElement, SetModalProps>(
       if (!isNaN(repsNum) && !isNaN(weightNum)) {
         // Save reps value for this exercise
         localStorage.setItem(getStorageKey('reps'), reps);
-        onAdd?.(repsNum, weightNum);
+        onConfirm?.(repsNum, weightNum);
         // Reset weight field
         setWeight('');
         setWeightError(false);
@@ -89,7 +128,7 @@ export const SetModal = React.forwardRef<HTMLDivElement, SetModalProps>(
               marginBottom: '2px'
             }}
           >
-            {setNumber}-{setNumber === 1 ? 'ый' : setNumber === 2 ? 'ой' : 'ий'} подход
+            {getSetLabel(setNumber)} подход
           </p>
 
           {/* Exercise name */}
@@ -143,12 +182,12 @@ export const SetModal = React.forwardRef<HTMLDivElement, SetModalProps>(
             </Button>
             <Button
               priority="primary"
-              tone="brand"
+              tone={isEditMode ? 'default' : 'brand'}
               size="md"
               className="flex-1"
-              onClick={handleAdd}
+              onClick={handleConfirm}
             >
-              Добавить
+              {confirmLabel ?? (isEditMode ? 'Изменить' : 'Добавить')}
             </Button>
           </div>
         </div>

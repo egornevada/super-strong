@@ -1,19 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTelegram } from './hooks/useTelegram';
 import { useSettingsSheet } from './contexts/SettingsSheetContext';
 import { syncPendingRequests, isOnline } from './lib/api';
 import { logger } from './lib/logger';
-import { getWorkoutsForDate } from './services/workoutsApi';
+import { getWorkoutsForDate, getWorkoutSetsForDay } from './services/workoutsApi';
+import { fetchExercises, fetchExerciseById } from './services/directusApi';
 import { ExercisesPage } from './pages/ExercisesPage';
 import { StorybookPage } from './pages/StorybookPage';
 import { CalendarPage } from './pages/CalendarPage';
 import { MyExercisesPage } from './pages/MyExercisesPage';
 import { type Exercise } from './services/directusApi';
-import { type Set } from './components';
+import { type Set, UsernameModal } from './components';
 import { ExerciseDetailSheetRenderer } from './components/SheetRenderer';
 import { ProfileSheetRenderer } from './components/ProfileSheetRenderer';
 import { SettingsSheetRenderer } from './components/SettingsSheetRenderer';
 import { recordProfileWorkout } from './lib/profileStats';
+import {
+  getOrCreateUserByUsername,
+  saveUserSession,
+  getUserSession
+} from './services/authApi';
 
 type PageType = 'calendar' | 'exercises' | 'tracking' | 'storybook';
 
@@ -31,13 +37,30 @@ export default function App() {
   useTelegram();
   const { setOnGoToStorybook } = useSettingsSheet();
   const [currentPage, setCurrentPage] = useState<PageType>('calendar');
+  const [showUsernameModal, setShowUsernameModal] = useState(false);
+  const [usernameModalError, setUsernameModalError] = useState('');
+  const [usernameModalLoading, setUsernameModalLoading] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [allExercises, setAllExercises] = useState<Exercise[]>([]);
 
-  // Sync pending requests and load workouts when app loads or comes back online
+  // Cache for exercises loaded by ID to avoid redundant API calls
+  const exerciseCacheRef = useRef<Map<string, Exercise>>(new Map());
+
+  // Load workouts after user is initialized
   useEffect(() => {
-    const handleOnline = async () => {
+    if (!isInitialized) {
+      return;
+    }
+
+    const handleLoadWorkouts = async () => {
       try {
+        // Load exercises cache for displaying saved workouts
+        const exercisesData = await fetchExercises();
+        setAllExercises(exercisesData);
+        logger.info('Exercises cache loaded', { count: exercisesData.length });
+
         if (isOnline()) {
-          logger.info('App is online, syncing pending requests...');
+          logger.info('User initialized, syncing pending requests...');
           const syncResult = await syncPendingRequests();
           const { synced, failed } = syncResult;
           if (synced > 0) {
@@ -56,15 +79,100 @@ export default function App() {
           logger.info('App offline, skipping sync and workout load');
         }
       } catch (error) {
-        logger.error('Error in app initialization:', error);
+        logger.error('Error loading workouts:', error);
       }
     };
 
-    window.addEventListener('online', handleOnline);
-    handleOnline(); // Try sync on initial load
+    // Handle app coming back online
+    window.addEventListener('online', handleLoadWorkouts);
 
-    return () => window.removeEventListener('online', handleOnline);
+    // Load workouts when user is first initialized
+    handleLoadWorkouts();
+
+    return () => window.removeEventListener('online', handleLoadWorkouts);
+  }, [isInitialized]);
+
+  // Initialize user - check for existing session or Telegram
+  useEffect(() => {
+    const initializeUser = async () => {
+      try {
+        // Check if user already has session
+        const existingSession = getUserSession();
+        if (existingSession) {
+          logger.info('User session found', { userId: existingSession.userId });
+          setIsInitialized(true);
+          return;
+        }
+
+        // Check if Telegram data is available
+        const telegramInitData = localStorage.getItem('telegram_init_data');
+        if (telegramInitData) {
+          try {
+            const data = JSON.parse(telegramInitData);
+            if (data.user) {
+              const telegramUser = data.user;
+              logger.info('Telegram user found', { telegramId: telegramUser.id });
+
+              // Use Telegram username or ID as identifier
+              const username = telegramUser.username || `user_${telegramUser.id}`;
+
+              // Get or create user
+              const user = await getOrCreateUserByUsername(
+                username,
+                telegramUser.id,
+                telegramUser.first_name,
+                telegramUser.last_name
+              );
+
+              // Save session
+              saveUserSession(user);
+              logger.info('User authenticated via Telegram', { userId: user.id });
+              setIsInitialized(true);
+              return;
+            }
+          } catch (err) {
+            logger.debug('Failed to parse Telegram data', err);
+          }
+        }
+
+        // No session and no Telegram - show username modal
+        logger.info('No Telegram data, showing username modal');
+        setShowUsernameModal(true);
+      } catch (error) {
+        logger.error('Error initializing user', error);
+        setUsernameModalError('Ошибка инициализации. Попробуйте снова.');
+      }
+    };
+
+    initializeUser();
   }, []);
+
+  // Handle username modal confirmation
+  const handleUsernameConfirm = async (username: string) => {
+    try {
+      setUsernameModalLoading(true);
+      setUsernameModalError('');
+
+      logger.info('Creating/connecting user with username', { username });
+
+      // Get or create user
+      const user = await getOrCreateUserByUsername(username);
+
+      // Save session
+      saveUserSession(user);
+
+      logger.info('User authenticated via username', { userId: user.id });
+
+      setShowUsernameModal(false);
+      setIsInitialized(true);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Ошибка подключения';
+      setUsernameModalError(errorMessage);
+      logger.error('Error confirming username', error);
+    } finally {
+      setUsernameModalLoading(false);
+    }
+  };
 
   // Load workouts for the current month
   const loadWorkoutsForCurrentMonth = async () => {
@@ -116,7 +224,7 @@ export default function App() {
   const [savedWorkouts, setSavedWorkouts] = useState<Map<string, ExerciseWithTrackSets[]>>(new Map());
   const [isClosing, setIsClosing] = useState(false);
 
-  const handleDayClick = (day: number, month: number, year: number) => {
+  const handleDayClick = async (day: number, month: number, year: number) => {
     // Сохраняем позицию скролла календаря перед переходом
     const calendarContainer = document.querySelector('.calendar-scroll-container');
     if (calendarContainer) {
@@ -124,21 +232,50 @@ export default function App() {
     }
     setSelectedDate({ day, month, year });
 
-    // Проверяем, есть ли сохраненная тренировка для этого дня
-    const dateKey = `${day}-${month}-${year}`;
-    const savedExercises = savedWorkouts.get(dateKey);
+    // Load data from server for this day
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const workoutData = await getWorkoutSetsForDay(dateStr);
 
-    if (savedExercises && savedExercises.length > 0) {
-      // Если есть сохраненная тренировка - переходим на MyExercisesPage
+    if (workoutData && workoutData.exerciseSets.size > 0) {
+      // Есть сохранённая тренировка - загружаем упражнения и подходы
+      logger.info('Loading saved workout for day', { date: dateStr, exerciseCount: workoutData.exerciseSets.size });
+
+      const exercisesWithSets: ExerciseWithTrackSets[] = [];
+
+      // Для каждого упражнения в workout_sets
+      for (const [exerciseId, sets] of workoutData.exerciseSets) {
+        // Get exercise from cache/selected/directus with proper priority
+        const exercise = await getExerciseById(exerciseId);
+
+        if (exercise) {
+          // Преобразуем WorkoutSetData в Set format
+          const trackSets: Set[] = sets.map(set => ({
+            reps: set.reps,
+            weight: set.weight
+          }));
+
+          exercisesWithSets.push({
+            ...exercise,
+            trackSets
+          });
+        } else {
+          logger.warn('Failed to load exercise after all attempts', { exerciseId });
+        }
+      }
+
+      // Обновляем локальный Map для отображения
       const newTrackedSets = new Map<string, Set[]>();
-      savedExercises.forEach(ex => {
-        newTrackedSets.set(ex.id, ex.trackSets);
+      exercisesWithSets.forEach(ex => {
+        // Ensure ID is string for consistent storage
+        newTrackedSets.set(String(ex.id), ex.trackSets);
       });
+
       setExercisesWithTrackedSets(newTrackedSets);
-      setSelectedExercises(savedExercises.map(({ ...ex }) => ex));
+      setSelectedExercises(exercisesWithSets);
       setCurrentPage('tracking');
     } else {
-      // Иначе переходим на ExercisesPage для выбора упражнений
+      // Нет сохранённых упражнений - переходим на ExercisesPage для выбора
+      logger.info('No saved workout for day, showing exercise selection', { date: dateStr });
       setSelectedExercises([]);
       setExercisesWithTrackedSets(new Map());
       setCurrentPage('exercises');
@@ -170,13 +307,51 @@ export default function App() {
     }, 300);
   };
 
-  // Получить упражнения с trackSets для MyExercisesPage
-  const getExercisesWithTrackedSets = (): ExerciseWithTrackSets[] => {
-    return selectedExercises.map(ex => ({
-      ...ex,
-      trackSets: exercisesWithTrackedSets.get(ex.id) || []
-    }));
+  // Helper: Get exercise by ID from multiple sources
+  const getExerciseById = async (id: string): Promise<Exercise | null> => {
+    // 1. Check cache first
+    if (exerciseCacheRef.current.has(id)) {
+      return exerciseCacheRef.current.get(id) || null;
+    }
+
+    // 2. Check in selectedExercises (exercises user already selected)
+    const selectedEx = selectedExercises.find(ex => String(ex.id) === id);
+    if (selectedEx) {
+      exerciseCacheRef.current.set(id, selectedEx);
+      return selectedEx;
+    }
+
+    // 3. Check in allExercises cache
+    const cachedEx = allExercises.find(ex => String(ex.id) === id);
+    if (cachedEx) {
+      exerciseCacheRef.current.set(id, cachedEx);
+      return cachedEx;
+    }
+
+    // 4. Load from Directus if not found anywhere
+    try {
+      const exercise = await fetchExerciseById(id);
+      exerciseCacheRef.current.set(id, exercise);
+      return exercise;
+    } catch (error) {
+      logger.warn('Failed to load exercise from Directus', { id, error });
+      return null;
+    }
   };
+
+  // Получить упражнения с trackSets для MyExercisesPage
+  // Мемоизируем результат чтобы избежать перезаписи локального состояния в MyExercisesPage
+  const exercisesWithTrackedSetsMemo = useMemo(() => {
+    return selectedExercises.map(ex => {
+      // Ensure ID is string for consistent lookup
+      const exerciseId = String(ex.id);
+      const trackSets = exercisesWithTrackedSets.get(exerciseId) || [];
+      return {
+        ...ex,
+        trackSets
+      };
+    });
+  }, [selectedExercises, exercisesWithTrackedSets]);
 
   const handleSaveTraining = (exercises: ExerciseWithTrackSets[], date: SelectedDate) => {
     // Сохраняем тренировку в Map по дате
@@ -185,15 +360,14 @@ export default function App() {
     newSavedWorkouts.set(dateKey, exercises);
     setSavedWorkouts(newSavedWorkouts);
 
+    // NOTE: Do NOT update exercisesWithTrackedSets here!
+    // It causes MyExercisesPage's useEffect to overwrite local state with empty trackSets.
+    // MyExercisesPage maintains its own state during editing.
+
     // Добавляем полную дату в workoutDays если её там нет
     setWorkoutDays((prev) =>
       prev.includes(dateKey) ? prev : [...prev, dateKey]
     );
-
-    console.log('Training saved:', { exercises, date });
-
-    // Очищаем временное хранилище trackSets
-    setExercisesWithTrackedSets(new Map());
 
     if (date) {
       const workoutDate = `${date.year}-${String(date.month + 1).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`;
@@ -203,9 +377,7 @@ export default function App() {
       );
     }
 
-    // Возвращаемся в календарь
-    setSelectedExercises([]);
-    setCurrentPage('calendar');
+    // Don't navigate away - user stays on tracking page to continue adding exercises
   };
 
   const handleBackFromMyExercises = () => {
@@ -229,7 +401,8 @@ export default function App() {
     // Сохраняем trackSets для каждого упражнения перед переходом
     const newTrackedSets = new Map(exercisesWithTrackedSets);
     exercises.forEach(ex => {
-      newTrackedSets.set(ex.id, ex.trackSets);
+      // Ensure ID is string for consistent storage
+      newTrackedSets.set(String(ex.id), ex.trackSets);
     });
     setExercisesWithTrackedSets(newTrackedSets);
 
@@ -270,57 +443,76 @@ export default function App() {
           - Below 640px: full viewport height with no gaps
           - Above 640px: 24px margins, max height, centered */}
       <div className="relative w-full max-w-[640px] max-sm:h-full sm:h-[calc(100vh-48px)] sm:my-6 bg-bg-3 flex flex-col max-sm:p-0 sm:p-3 sm:rounded-[24px]" style={{ maxHeight: '100dvh' }}>
-        {/* Calendar - always in DOM, just hidden */}
-        <div
-          style={{ display: currentPage === 'calendar' ? 'flex' : 'none' }}
-          className={`w-full h-full flex-1 ${currentPage === 'calendar' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
-        >
-          <CalendarPage
-            onDayClick={handleDayClick}
-            workoutDays={workoutDays}
-          />
-        </div>
+        {isInitialized ? (
+          <>
+            {/* Calendar - always in DOM, just hidden */}
+            <div
+              style={{ display: currentPage === 'calendar' ? 'flex' : 'none' }}
+              className={`w-full h-full flex-1 ${currentPage === 'calendar' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
+            >
+              <CalendarPage
+                onDayClick={handleDayClick}
+                workoutDays={workoutDays}
+              />
+            </div>
 
-        {/* Exercises */}
-        <div
-          style={{ display: currentPage === 'exercises' ? 'flex' : 'none' }}
-          className={`w-full h-full flex-1 ${currentPage === 'exercises' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
-        >
-          <ExercisesPage
-            selectedDate={selectedDate}
-            onBack={handleBackFromExercises}
-            onStartTraining={handleGoToMyExercises}
-            initialSelectedIds={selectedExercises.map((ex) => ex.id)}
-          />
-        </div>
+            {/* Exercises */}
+            <div
+              style={{ display: currentPage === 'exercises' ? 'flex' : 'none' }}
+              className={`w-full h-full flex-1 ${currentPage === 'exercises' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
+            >
+              <ExercisesPage
+                selectedDate={selectedDate}
+                onBack={handleBackFromExercises}
+                onStartTraining={handleGoToMyExercises}
+                initialSelectedIds={selectedExercises.map((ex) => ex.id)}
+              />
+            </div>
 
-        {/* Tracking (My Exercises) */}
-        <div
-          style={{ display: currentPage === 'tracking' ? 'flex' : 'none' }}
-          className={`w-full h-full flex-1 ${currentPage === 'tracking' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
-        >
-          <MyExercisesPage
-            selectedExercises={getExercisesWithTrackedSets()}
-            selectedDate={selectedDate}
-            onBack={handleBackFromMyExercises}
-            onSelectMoreExercises={handleSelectMoreExercisesFromMyPage}
-            onSave={handleSaveTraining}
-          />
-        </div>
+            {/* Tracking (My Exercises) */}
+            <div
+              style={{ display: currentPage === 'tracking' ? 'flex' : 'none' }}
+              className={`w-full h-full flex-1 ${currentPage === 'tracking' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
+            >
+              <MyExercisesPage
+                selectedExercises={exercisesWithTrackedSetsMemo}
+                selectedDate={selectedDate}
+                onBack={handleBackFromMyExercises}
+                onSelectMoreExercises={handleSelectMoreExercisesFromMyPage}
+                onSave={handleSaveTraining}
+              />
+            </div>
 
-        {/* Storybook */}
-        <div
-          style={{ display: currentPage === 'storybook' ? 'flex' : 'none' }}
-          className={`w-full h-full flex-1 ${currentPage === 'storybook' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
-        >
-          <StorybookPage onBack={handleBackFromStorybook} />
-        </div>
+            {/* Storybook */}
+            <div
+              style={{ display: currentPage === 'storybook' ? 'flex' : 'none' }}
+              className={`w-full h-full flex-1 ${currentPage === 'storybook' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
+            >
+              <StorybookPage onBack={handleBackFromStorybook} />
+            </div>
+
+            {/* Sheet overlays */}
+            <ExerciseDetailSheetRenderer />
+            <ProfileSheetRenderer />
+            <SettingsSheetRenderer />
+          </>
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-12 h-12 border-4 border-bg-2 border-t-brand-500 rounded-full animate-spin" />
+              <p className="text-fg-3 text-sm">Загрузка...</p>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Sheet overlays */}
-      <ExerciseDetailSheetRenderer />
-      <ProfileSheetRenderer />
-      <SettingsSheetRenderer />
+      {/* Username Modal for non-Telegram users */}
+      <UsernameModal
+        isOpen={showUsernameModal}
+        isLoading={usernameModalLoading}
+        error={usernameModalError}
+        onConfirm={handleUsernameConfirm}
+      />
     </div>
   );
 }

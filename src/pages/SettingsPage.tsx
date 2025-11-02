@@ -3,6 +3,7 @@ import { PageLayout } from '../components/PageLayout'
 import { useTelegram } from '../hooks/useTelegram'
 import { deleteAccountAndClose, closeTelegramApp, showTelegramConfirm } from '../lib/telegram'
 import { userActions, logger } from '../lib/logger'
+import { getUserSession, clearUserSession } from '../services/authApi'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
 import { Button } from '../components/main/Button'
@@ -30,7 +31,15 @@ export function SettingsPage({ onClose, onGoToStorybook }: SettingsPageProps) {
 
   const handleLogout = () => {
     logger.info('Logout initiated')
-    closeTelegramApp()
+    const session = getUserSession()
+    if (session) {
+      // For session-based login, clear session and reload
+      clearUserSession()
+      window.location.reload()
+    } else {
+      // For Telegram, close the app
+      closeTelegramApp()
+    }
   }
 
   const handleDeleteAccount = async () => {
@@ -54,12 +63,19 @@ export function SettingsPage({ onClose, onGoToStorybook }: SettingsPageProps) {
   }
 
   const getUserDisplayInfo = () => {
+    // First check for session username (from modal login)
+    const session = getUserSession()
+    if (session?.username) {
+      return `@${session.username}`
+    }
+
+    // Then check for Telegram user
     if (telegramUser?.username) {
       return `@${telegramUser.username}`
     } else if (telegramUser?.first_name) {
       return telegramUser.first_name
     } else {
-      return 'Гость, браузер. Прогресс не сохранится'
+      return 'Гость, браузер'
     }
   }
 

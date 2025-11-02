@@ -34,38 +34,11 @@ export function MyExercisesPage({
   const { openExerciseDetail } = useExerciseDetailSheet();
   const [exercisesWithSets, setExercisesWithSets] = useState<ExerciseWithTrackSets[]>(selectedExercises);
   const [isSaving, setIsSaving] = useState(false);
-  const saveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const savingRef = React.useRef(false);
 
   useEffect(() => {
     setExercisesWithSets(selectedExercises);
   }, [selectedExercises]);
-
-  // Auto-save with debounce when exercises change
-  useEffect(() => {
-    if (!selectedDate || exercisesWithSets.length === 0) return;
-
-    // Check if there are any sets to save
-    const hasAnySet = exercisesWithSets.some(ex => ex.trackSets.length > 0);
-    if (!hasAnySet) return;
-
-    logger.debug('Auto-save timer started', { exerciseCount: exercisesWithSets.length });
-
-    // Clear previous timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    // Set new timeout for auto-save (2 seconds debounce)
-    saveTimeoutRef.current = setTimeout(() => {
-      handleAutoSaveWorkout();
-    }, 2000);
-
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, [exercisesWithSets, selectedDate]);
 
   const handleExerciseImageClick = (exerciseId: string) => {
     openExerciseDetail(exerciseId);
@@ -86,12 +59,39 @@ export function MyExercisesPage({
     'Дек.',
   ];
 
-  const handleAddSet = (index: number, reps: number, weight: number) => {
+  const handleAddSet = async (exerciseIndex: number, reps: number, weight: number) => {
     const updated = [...exercisesWithSets];
-    updated[index].trackSets.push({ reps, weight });
-    logger.debug('Set added', { exerciseName: updated[index].name, reps, weight });
+    const target = updated[exerciseIndex];
+    if (!target) return;
+
+    const trackSets = [...target.trackSets, { reps, weight }];
+    updated[exerciseIndex] = { ...target, trackSets };
+    logger.debug('Set added', { exerciseName: target.name, reps, weight });
+
     setExercisesWithSets(updated);
-    // Auto-save will be triggered by useEffect
+
+    // Save immediately
+    await handleAutoSaveWorkout(updated);
+  };
+
+  const handleUpdateSet = async (exerciseIndex: number, setIndex: number, reps: number, weight: number) => {
+    const updated = [...exercisesWithSets];
+    const target = updated[exerciseIndex];
+    if (!target) return;
+
+    const trackSets = [...target.trackSets];
+    if (!trackSets[setIndex]) {
+      return;
+    }
+
+    trackSets[setIndex] = { reps, weight };
+    updated[exerciseIndex] = { ...target, trackSets };
+    logger.debug('Set updated', { exerciseName: target.name, setIndex: setIndex + 1, reps, weight });
+
+    setExercisesWithSets(updated);
+
+    // Save immediately
+    await handleAutoSaveWorkout(updated);
   };
 
   const handleSelectMoreExercises = () => {
@@ -100,15 +100,19 @@ export function MyExercisesPage({
     onSelectMoreExercises?.(exercisesWithSets);
   };
 
-  const handleAutoSaveWorkout = async () => {
-    if (!selectedDate || exercisesWithSets.length === 0) return;
+  const handleAutoSaveWorkout = async (exercises: ExerciseWithTrackSets[] = exercisesWithSets) => {
+    if (!selectedDate || exercises.length === 0) return;
+
+    // Prevent concurrent saves
+    if (savingRef.current) return;
 
     try {
+      savingRef.current = true;
       setIsSaving(true);
       const dateStr = `${selectedDate.year}-${String(selectedDate.month + 1).padStart(2, '0')}-${String(selectedDate.day).padStart(2, '0')}`;
 
       // Convert exercises to API format
-      const apiExercises = exercisesWithSets
+      const apiExercises = exercises
         .filter(ex => ex.trackSets.length > 0)
         .map(ex => convertExerciseToApiFormat(ex.id, ex.trackSets));
 
@@ -117,29 +121,37 @@ export function MyExercisesPage({
         return;
       }
 
-      logger.info('Auto-saving workout...', { dateStr, exerciseCount: apiExercises.length });
+      logger.info('Saving workout...', { dateStr, exerciseCount: apiExercises.length });
 
       // Save to server
       const workoutId = await saveWorkout(dateStr, apiExercises);
 
       // Also call local callback for local state management
-      onSave?.(exercisesWithSets, selectedDate);
+      onSave?.(exercises, selectedDate);
 
-      logger.info('Workout auto-saved successfully', { workoutId, exerciseCount: apiExercises.length });
+      logger.info('Workout saved successfully', { workoutId, exerciseCount: apiExercises.length });
     } catch (error) {
-      logger.error('Failed to auto-save workout', error);
-      // Silently fail on auto-save, don't show alert
+      logger.error('Failed to save workout', error);
+      showTelegramAlert('Ошибка сохранения тренировки');
     } finally {
+      savingRef.current = false;
       setIsSaving(false);
     }
   };
 
   const handleBackToCalendar = async () => {
-    // If there are pending saves, wait for them
-    if (saveTimeoutRef.current) {
-      logger.info('Waiting for pending save before going back...');
-      clearTimeout(saveTimeoutRef.current);
-      await handleAutoSaveWorkout();
+    // Make sure any pending saves complete
+    if (savingRef.current) {
+      logger.info('Waiting for save to complete before going back...');
+      // Wait for saving to finish
+      await new Promise(resolve => {
+        const checkInterval = setInterval(() => {
+          if (!savingRef.current) {
+            clearInterval(checkInterval);
+            resolve(null);
+          }
+        }, 100);
+      });
     }
     onBack?.();
   };
@@ -184,6 +196,10 @@ export function MyExercisesPage({
                   key={exercise.id}
                   id={exercise.id}
                   name={exercise.name}
+                  subtitle={
+                    exercise.description?.trim() ||
+                    (exercise.category ? `Упражнение на ${exercise.category.toLowerCase()}` : undefined)
+                  }
                   image={
                     exercise.image ? (
                       <img
@@ -195,6 +211,7 @@ export function MyExercisesPage({
                   }
                   sets={exercise.trackSets}
                   onAddSet={(reps, weight) => handleAddSet(index, reps, weight)}
+                  onUpdateSet={(setIndex, reps, weight) => handleUpdateSet(index, setIndex, reps, weight)}
                   onImageClick={handleExerciseImageClick}
                 />
               ))}
