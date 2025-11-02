@@ -284,9 +284,25 @@ export function isOnline(): boolean {
 }
 
 /**
+ * Check if we have valid Telegram authentication
+ */
+export function hasValidAuth(): boolean {
+  const initData = getTelegramInitData();
+  return initData !== '';
+}
+
+/**
  * Sync pending requests when coming back online
  */
 export async function syncPendingRequests(): Promise<{ synced: number; failed: number }> {
+  // Skip sync if not authenticated (running in browser, not in Telegram app)
+  // In browser mode, we don't have Telegram initData, so all requests will fail with 401
+  // Better to skip sync and proceed with app, sync will work when opened in real Telegram
+  if (!hasValidAuth()) {
+    console.info('[API] Skipping sync: not authenticated (no Telegram initData). This is normal in browser mode.');
+    return { synced: 0, failed: 0 };
+  }
+
   const pending = getPendingRequests();
   let synced = 0;
   let failed = 0;

@@ -13,6 +13,7 @@ import { type Set } from './components';
 import { ExerciseDetailSheetRenderer } from './components/SheetRenderer';
 import { ProfileSheetRenderer } from './components/ProfileSheetRenderer';
 import { SettingsSheetRenderer } from './components/SettingsSheetRenderer';
+import { recordProfileWorkout } from './lib/profileStats';
 
 type PageType = 'calendar' | 'exercises' | 'tracking' | 'storybook';
 
@@ -34,15 +35,28 @@ export default function App() {
   // Sync pending requests and load workouts when app loads or comes back online
   useEffect(() => {
     const handleOnline = async () => {
-      if (isOnline()) {
-        logger.info('App is online, syncing pending requests...');
-        const { synced, failed } = await syncPendingRequests();
-        if (synced > 0 || failed > 0) {
-          logger.info(`Sync complete: ${synced} synced, ${failed} failed`);
-        }
+      try {
+        if (isOnline()) {
+          logger.info('App is online, syncing pending requests...');
+          const syncResult = await syncPendingRequests();
+          const { synced, failed } = syncResult;
+          if (synced > 0) {
+            logger.info(`Sync complete: ${synced} synced, ${failed} failed`);
+          } else if (failed > 0) {
+            logger.info(`Sync had failures: 0 synced, ${failed} failed`);
+          } else {
+            logger.info('Sync skipped (no auth) or nothing to sync');
+          }
 
-        // Load workouts for current month after sync
-        await loadWorkoutsForCurrentMonth();
+          // Load workouts for current month after sync
+          logger.info('Loading workouts for current month...');
+          await loadWorkoutsForCurrentMonth();
+          logger.info('Workouts loading complete');
+        } else {
+          logger.info('App offline, skipping sync and workout load');
+        }
+      } catch (error) {
+        logger.error('Error in app initialization:', error);
       }
     };
 
@@ -55,18 +69,45 @@ export default function App() {
   // Load workouts for the current month
   const loadWorkoutsForCurrentMonth = async () => {
     try {
+      logger.info('loadWorkoutsForCurrentMonth: START');
+
       const today = new Date();
       const year = today.getFullYear();
       const month = today.getMonth();
 
       // Load workouts for current month (just a sample - can be optimized)
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+      logger.info('loadWorkoutsForCurrentMonth: Fetching date', { dateStr });
+
       const workouts = await getWorkoutsForDate(dateStr);
+      logger.info('loadWorkoutsForCurrentMonth: Got workouts', { count: workouts.length });
+
+      logger.info('Raw API response - Workouts count:', workouts.length);
+      workouts.forEach((w, i) => {
+        logger.info(`  Workout ${i}:`, {
+          workout_date: w.workout_date,
+          fields: Object.keys(w),
+          sets_count: w.sets?.length || 0
+        });
+      });
 
       // Extract unique days that have workouts
       const daysWithWorkouts = new Set<string>();
-      workouts.forEach(workout => {
-        const parts = workout.workoutDate.split('-');
+      workouts.forEach((workout, idx) => {
+        logger.info(`Processing workout ${idx}:`, {
+          workout_date: workout.workout_date,
+          has_sets: !!workout.sets
+        });
+
+        // API returns workout_date (snake_case)
+        const dateField = workout.workout_date;
+
+        if (!dateField) {
+          logger.warn(`Workout ${idx} has no date field`, workout);
+          return;
+        }
+
+        const parts = dateField.split('-');
         if (parts.length === 3) {
           const day = parseInt(parts[2], 10);
           const workoutMonth = parseInt(parts[1], 10) - 1;
@@ -168,6 +209,14 @@ export default function App() {
 
     // Очищаем временное хранилище trackSets
     setExercisesWithTrackedSets(new Map());
+
+    if (date) {
+      const workoutDate = `${date.year}-${String(date.month + 1).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`;
+      recordProfileWorkout(
+        workoutDate,
+        exercises.map(({ trackSets }) => ({ trackSets }))
+      );
+    }
 
     // Возвращаемся в календарь
     setSelectedExercises([]);
