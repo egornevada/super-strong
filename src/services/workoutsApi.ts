@@ -29,15 +29,18 @@ interface WorkoutData {
   exercises: ExerciseData[];
 }
 
-interface SavedWorkout {
+export interface SavedWorkout {
   id: string;
-  userId: string;
-  workoutDate: string;
-  exercises: Array<{
+  workout_date: string;
+  created_at: string;
+  updated_at: string;
+  sets: Array<{
+    id: string;
     exerciseId: string;
-    sets: WorkoutSet[];
+    setOrder: number;
+    reps: number;
+    weight: number;
   }>;
-  createdAt: string;
 }
 
 interface WorkoutsResponse {
@@ -65,9 +68,25 @@ export async function getCurrentUser(): Promise<UserInfo> {
 export async function getWorkoutsForDate(date: string): Promise<SavedWorkout[]> {
   try {
     logger.debug('Fetching workouts for date', { date });
-    const response = await api.get<WorkoutsResponse>(`/workouts?date=${date}`);
-    logger.info('Workouts fetched successfully', { date, count: response.workouts.length });
-    return response.workouts;
+    const response = await api.get<WorkoutsResponse | SavedWorkout[]>(`/workouts?date=${date}`);
+
+    // Handle both response formats:
+    // 1. Wrapped: { workouts: [...] }
+    // 2. Direct array: [...]
+    let workouts: SavedWorkout[];
+    if (Array.isArray(response)) {
+      logger.debug('API returned direct array format');
+      workouts = response;
+    } else if (response && typeof response === 'object' && 'workouts' in response) {
+      logger.debug('API returned wrapped format { workouts: [...] }');
+      workouts = (response as WorkoutsResponse).workouts;
+    } else {
+      logger.warn('Unexpected API response format', { response });
+      workouts = [];
+    }
+
+    logger.info('Workouts fetched successfully', { date, count: workouts.length });
+    return workouts;
   } catch (error) {
     logger.error('Failed to fetch workouts for date', { date, error });
     throw error;

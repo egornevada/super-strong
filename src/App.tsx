@@ -82,55 +82,13 @@ export default function App() {
       const workouts = await getWorkoutsForDate(dateStr);
       logger.info('loadWorkoutsForCurrentMonth: Got workouts', { count: workouts.length });
 
-      // 🔍 LOG RAW DATA BEFORE PROCESSING
-      console.log('🔍 RAW API DATA:', JSON.stringify(workouts, null, 2));
-
-      logger.info('Raw API response - Workouts count:', workouts.length);
-      workouts.forEach((w, i) => {
-        console.log(`🔍 Workout ${i}:`, {
-          id: w.id,
-          workout_id: w.workout_id,
-          workout_date: w.workout_date,
-          workout_date_type: typeof w.workout_date,
-          fields: Object.keys(w),
-          sets_count: w.sets?.length || 0,
-          exercises_count: w.exercises?.length || 0
-        });
-
-        // Log sets if present
-        w.sets?.forEach((set, setIdx) => {
-          console.log(`  🔍 Set ${setIdx}:`, {
-            id: set.id,
-            exerciseId: set.exerciseId,
-            exerciseId_type: typeof set.exerciseId,
-            reps: set.reps,
-            weight: set.weight
-          });
-        });
-      });
-
       // Extract unique days that have workouts
       const daysWithWorkouts = new Set<string>();
-      workouts.forEach((workout, idx) => {
-        logger.info(`Processing workout ${idx}:`, {
-          workout_date: workout.workout_date,
-          workout_date_type: typeof workout.workout_date,
-          has_sets: !!workout.sets
-        });
-
-        // API returns workout_date (snake_case)
+      workouts.forEach((workout) => {
         const dateField = workout.workout_date;
 
         if (!dateField) {
-          logger.warn(`Workout ${idx} has no date field`, workout);
-          return;
-        }
-
-        if (typeof dateField !== 'string') {
-          logger.warn(`Workout ${idx} date is not a string:`, {
-            value: dateField,
-            type: typeof dateField
-          });
+          logger.warn('Workout has no date field', { id: workout.id });
           return;
         }
 
@@ -147,7 +105,6 @@ export default function App() {
       logger.info('Workouts loaded from server', { count: workouts.length });
     } catch (error) {
       logger.error('Failed to load workouts from server', error);
-      console.error('🔴 FULL ERROR:', error);
       // Silently fail - use local data if available
     }
   };
