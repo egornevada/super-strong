@@ -111,7 +111,36 @@ function savePendingRequest(method: string, path: string, body?: unknown): void 
 export function getPendingRequests(): PendingRequest[] {
   try {
     const pending = localStorage.getItem(PENDING_REQUESTS_KEY);
-    return pending ? JSON.parse(pending) : [];
+    if (!pending) return [];
+
+    const requests = JSON.parse(pending) as PendingRequest[];
+
+    // Clean up old buggy requests from double-encoding bug
+    // Any request with string body is from the old broken code
+    // New code stores original objects, not stringified bodies
+    const cleaned = requests.filter(req => {
+      if (typeof req.body === 'string') {
+        console.warn('[API] Removing old buggy pending request (has stringified body):', {
+          method: req.method,
+          path: req.path,
+          bodyPreview: req.body.substring(0, 50)
+        });
+        return false; // Filter out this request
+      }
+      return true;
+    });
+
+    // Save cleaned list back to localStorage if anything was removed
+    if (cleaned.length < requests.length) {
+      try {
+        localStorage.setItem(PENDING_REQUESTS_KEY, JSON.stringify(cleaned));
+        console.info(`[API] Cleaned up ${requests.length - cleaned.length} old pending requests`);
+      } catch (e) {
+        console.warn('[API] Failed to save cleaned pending requests:', e);
+      }
+    }
+
+    return cleaned;
   } catch (e) {
     console.warn('[API] Pending request read error:', e);
     return [];
@@ -131,10 +160,14 @@ export function clearPendingRequests(): void {
 
 /**
  * Main API request function
+ * @param path - API path
+ * @param init - RequestInit with stringified body for fetch
+ * @param originalBody - Original unserialized body for offline queue (prevents double-encoding)
  */
 async function request<T>(
   path: string,
-  init: RequestInit = {}
+  init: RequestInit = {},
+  originalBody?: unknown
 ): Promise<T> {
   const url = buildUrl(path);
   const headers = new Headers(init.headers || {});
@@ -158,7 +191,7 @@ async function request<T>(
     hasInitData,
     hasBody: !!init.body,
     bodyType: typeof init.body,
-    bodyPreview: init.body ? (typeof init.body === 'string' ? init.body.substring(0, 100) : 'object') : undefined
+    bodyPreview: init.body ? (typeof init.body === 'string' ? (init.body as string).substring(0, 100) : 'object') : undefined
   });
 
   try {
@@ -197,7 +230,9 @@ async function request<T>(
 
     // If write request, save for later sync
     if (method !== 'GET') {
-      savePendingRequest(method, path, init.body);
+      // CRITICAL: Save original body, NOT stringified body!
+      // This prevents double-encoding when request is retried from offline queue
+      savePendingRequest(method, path, originalBody);
       console.warn(`[API] Write request saved for later sync: ${method} ${path}`);
     }
 
@@ -210,32 +245,34 @@ async function request<T>(
  */
 export const api = {
   get<T = unknown>(path: string): Promise<T> {
-    return request<T>(path, { method: 'GET' });
+    return request<T>(path, { method: 'GET' }, undefined);
   },
 
   post<T = unknown>(path: string, body?: unknown): Promise<T> {
+    // Store original body for offline persistence
+    // request() will stringify it, but offline queue needs the original
     return request<T>(path, {
       method: 'POST',
       body: body ? JSON.stringify(body) : undefined
-    });
+    }, body);
   },
 
   put<T = unknown>(path: string, body?: unknown): Promise<T> {
     return request<T>(path, {
       method: 'PUT',
       body: body ? JSON.stringify(body) : undefined
-    });
+    }, body);
   },
 
   patch<T = unknown>(path: string, body?: unknown): Promise<T> {
     return request<T>(path, {
       method: 'PATCH',
       body: body ? JSON.stringify(body) : undefined
-    });
+    }, body);
   },
 
   delete<T = unknown>(path: string): Promise<T> {
-    return request<T>(path, { method: 'DELETE' });
+    return request<T>(path, { method: 'DELETE' }, undefined);
   }
 };
 
@@ -256,10 +293,38 @@ export async function syncPendingRequests(): Promise<{ synced: number; failed: n
 
   for (const req of pending) {
     try {
+      // CRITICAL: req.body can be either:
+      // 1. Object (new format): stored as original object for offline queue
+      // 2. String (old format from previous bug): stored as JSON string (already stringified once)
+      // We need to handle both cases to avoid double-encoding
+
+      let bodyForRequest: BodyInit | null | undefined;
+      let originalBodyForQueue: unknown;
+
+      if (typeof req.body === 'string') {
+        // Old format: body is already a JSON string (was stringified when saved)
+        // Don't stringify again! Just use as-is
+        bodyForRequest = req.body;
+        originalBodyForQueue = undefined; // Don't save to queue again since it's already stringified
+        console.warn('[API] Old-format pending request (stringified body)', {
+          method: req.method,
+          path: req.path
+        });
+      } else if (typeof req.body === 'object' && req.body !== null) {
+        // New format: body is original object
+        // Stringify for request, pass original for offline persistence
+        bodyForRequest = JSON.stringify(req.body);
+        originalBodyForQueue = req.body;
+      } else {
+        // No body or invalid
+        bodyForRequest = undefined;
+        originalBodyForQueue = undefined;
+      }
+
       await request(req.path, {
         method: req.method,
-        body: req.body ? JSON.stringify(req.body) : undefined
-      });
+        body: bodyForRequest
+      }, originalBodyForQueue);
       synced++;
     } catch (error) {
       console.error(`[API] Failed to sync ${req.method} ${req.path}:`, error);
