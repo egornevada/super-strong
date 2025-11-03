@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTelegram } from './hooks/useTelegram';
 import { useSettingsSheet } from './contexts/SettingsSheetContext';
 import { syncPendingRequests, isOnline } from './lib/api';
@@ -71,9 +71,23 @@ export default function App() {
             logger.info('Sync skipped (no auth) or nothing to sync');
           }
 
-          // Load workouts for current month after sync
-          logger.info('Loading workouts for current month...');
-          await loadWorkoutsForCurrentMonth();
+          // Load workouts for all visible months (current year + adjacent months)
+          logger.info('Loading workouts for all months...');
+          const today = new Date();
+          const currentYear = today.getFullYear();
+          const currentMonth = today.getMonth();
+
+          // Load previous year, current year, and next year months
+          for (let year = currentYear - 1; year <= currentYear + 1; year++) {
+            for (let month = 0; month < 12; month++) {
+              // Skip months in the past (before current month of previous year)
+              if (year === currentYear - 1 && month < currentMonth) continue;
+              // Skip months in the future (after current month of next year)
+              if (year === currentYear + 1 && month > currentMonth) continue;
+
+              await loadWorkoutsForCurrentMonth(month, year);
+            }
+          }
           logger.info('Workouts loading complete');
         } else {
           logger.info('App offline, skipping sync and workout load');
@@ -174,24 +188,24 @@ export default function App() {
     }
   };
 
-  // Load workouts for the current month
-  const loadWorkoutsForCurrentMonth = async () => {
+  // Load workouts for a specific month (defaults to current month if not specified)
+  const loadWorkoutsForCurrentMonth = useCallback(async (month?: number, year?: number) => {
     try {
-      logger.info('loadWorkoutsForCurrentMonth: START');
+      logger.info('loadWorkoutsForCurrentMonth: START', { month, year });
 
       const today = new Date();
-      const year = today.getFullYear();
-      const month = today.getMonth();
+      const targetYear = year ?? today.getFullYear();
+      const targetMonth = month ?? today.getMonth();
 
-      // Load workouts for current month (just a sample - can be optimized)
-      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+      // Load workouts for the specified month
+      const dateStr = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-01`;
       logger.info('loadWorkoutsForCurrentMonth: Fetching date', { dateStr });
 
       const workouts = await getWorkoutsForDate(dateStr);
       logger.info('loadWorkoutsForCurrentMonth: Got workouts', { count: workouts.length });
 
       // Extract unique days that have workouts
-      const daysWithWorkouts = new Set<string>();
+      const newDaysWithWorkouts = new Set<string>();
       workouts.forEach((workout) => {
         const dateField = workout.workout_date;
 
@@ -205,17 +219,22 @@ export default function App() {
           const day = parseInt(parts[2], 10);
           const workoutMonth = parseInt(parts[1], 10) - 1;
           const workoutYear = parseInt(parts[0], 10);
-          daysWithWorkouts.add(`${day}-${workoutMonth}-${workoutYear}`);
+          newDaysWithWorkouts.add(`${day}-${workoutMonth}-${workoutYear}`);
         }
       });
 
-      setWorkoutDays(Array.from(daysWithWorkouts));
+      // Accumulate workouts - merge new ones with existing ones
+      setWorkoutDays((prev) => {
+        const merged = new Set(prev);
+        newDaysWithWorkouts.forEach(day => merged.add(day));
+        return Array.from(merged);
+      });
       logger.info('Workouts loaded from server', { count: workouts.length });
     } catch (error) {
       logger.error('Failed to load workouts from server', error);
       // Silently fail - use local data if available
     }
-  };
+  }, []);
   const [selectedDate, setSelectedDate] = useState<SelectedDate | null>(null);
   const [calendarScrollPosition, setCalendarScrollPosition] = useState(0);
   const [selectedExercises, setSelectedExercises] = useState<Exercise[]>([]);

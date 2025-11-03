@@ -59,41 +59,10 @@ export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
     const monthRefs = React.useRef<{ [key: string]: HTMLDivElement | null }>({});
     const hasInitialScrolled = React.useRef(false);
-    const observerEnabledRef = React.useRef(false);
 
-    React.useEffect(() => {
-      const observer = new IntersectionObserver(
-        (entries) => {
-          // Не обновляем месяц если ещё не закончена инициальная прокрутка
-          if (!observerEnabledRef.current) return;
-
-          // Находим месяц, который больше всего пересекается с областью видимости
-          let mostVisibleEntry = entries[0];
-          for (const entry of entries) {
-            if (entry.intersectionRatio > (mostVisibleEntry?.intersectionRatio || 0)) {
-              mostVisibleEntry = entry;
-            }
-          }
-
-          if (mostVisibleEntry && mostVisibleEntry.isIntersecting) {
-            const monthStr = mostVisibleEntry.target.getAttribute('data-month');
-            if (monthStr) {
-              const [m, y] = monthStr.split('-').map(Number);
-              setDisplayMonth(m);
-              setDisplayYear(y);
-              onMonthChange?.(m, y);
-            }
-          }
-        },
-        { threshold: [0.1, 0.25, 0.5, 0.75] }
-      );
-
-      Object.values(monthRefs.current).forEach((ref) => {
-        if (ref) observer.observe(ref);
-      });
-
-      return () => observer.disconnect();
-    }, [onMonthChange]);
+    // Note: Removed IntersectionObserver to prevent scroll position reset
+    // Months are loaded once at app init - no on-demand loading during scroll
+    // This preserves scroll position and provides smooth UX
 
     // Прокрутить к текущему месяцу при инициализации
     React.useEffect(() => {
@@ -106,10 +75,6 @@ export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
           setTimeout(() => {
             currentMonthElement.scrollIntoView({ behavior: 'auto', block: 'start' });
             hasInitialScrolled.current = true;
-            // Включаем Observer только после инициальной прокрутки
-            setTimeout(() => {
-              observerEnabledRef.current = true;
-            }, 100);
           }, 100);
         }
       }

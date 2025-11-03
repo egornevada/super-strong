@@ -126,7 +126,8 @@ export function MyExercisesPage({
       // Save to server
       const workoutId = await saveWorkout(dateStr, apiExercises);
 
-      // Also call local callback for local state management
+      // Update parent state to reflect new workout (adds dot to calendar)
+      // This does NOT navigate away - it only updates the workoutDays state
       onSave?.(exercises, selectedDate);
 
       logger.info('Workout saved successfully', { workoutId, exerciseCount: apiExercises.length });
