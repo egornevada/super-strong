@@ -11,6 +11,10 @@ node_modules
 dist
 dist-ssr
 *.local
+database/
+uploads/
+CLAUDE.md
+docker-compose.yml
 
 # Environment files
 .env.local
@@ -22,6 +26,7 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 .DS_Store
+.claude/
 *.suo
 *.ntvs*
 *.njsproj
