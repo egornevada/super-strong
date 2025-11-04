@@ -3,7 +3,7 @@ import { useTelegram } from './hooks/useTelegram';
 import { useSettingsSheet } from './contexts/SettingsSheetContext';
 import { syncPendingRequests, isOnline } from './lib/api';
 import { logger } from './lib/logger';
-import { getWorkoutsForDate, getWorkoutSetsForDay } from './services/workoutsApi';
+import { getWorkoutsForDate } from './services/workoutsApi';
 import { fetchExercises, fetchExerciseById } from './services/directusApi';
 import { ExercisesPage } from './pages/ExercisesPage';
 import { StorybookPage } from './pages/StorybookPage';

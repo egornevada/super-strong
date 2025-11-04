@@ -1,3 +1,6 @@
+import { api } from '../lib/api';
+import { logger } from '../lib/logger';
+
 const DIRECTUS_URL = import.meta.env.VITE_DIRECTUS_URL || "http://localhost:8055";
 
 export interface Exercise {
@@ -57,31 +60,35 @@ function getImageUrl(fileId: string): string {
  */
 export async function fetchExercises(): Promise<Exercise[]> {
   try {
-    const response = await fetch(
-      `${DIRECTUS_URL}/items/exercises?fields=*,category.id,category.name,image.id,image.filename_disk&limit=-1`
+    // Получаем упражнения с их категориями через Directus REST API
+    const response = await api.get<DirectusResponse<DirectusExercise>>(
+      '/items/exercises?fields=id,name,description,category.id,category.name&limit=-1'
     );
 
-    if (!response.ok) {
-      throw new Error(`Directus error: ${response.statusText}`);
-    }
+    console.log('[directusApi] fetchExercises response:', response);
 
-    const data: DirectusResponse<DirectusExercise> = await response.json();
+    const data = Array.isArray(response) ? response : (response?.data || []);
+
+    console.log('[directusApi] fetchExercises data:', data);
 
     // Преобразуем формат Directus в наш формат
-    return data.data.map((item: DirectusExercise) => ({
-      id: item.id,
+    const result = data.map((item: any) => ({
+      id: String(item.id),
       name: item.name || "",
       category: item.category?.name || "Без категории",
       description: item.description || "",
       image: item.image
         ? {
-            url: getImageUrl(item.image.id),
+            url: `${DIRECTUS_URL}/assets/${item.image.id}`,
             alternativeText: item.image.title || item.name,
           }
         : undefined,
     }));
+
+    console.log('[directusApi] fetchExercises result:', result);
+    return result;
   } catch (error) {
-    console.error("Failed to fetch exercises from Directus:", error);
+    logger.error("Failed to fetch exercises from Directus:", error);
     throw error;
   }
 }
@@ -93,30 +100,28 @@ export async function fetchExercisesByCategory(
   category: string
 ): Promise<Exercise[]> {
   try {
-    const response = await fetch(
-      `${DIRECTUS_URL}/items/exercises?fields=*,category.id,category.name,image.id,image.filename_disk&filter[category][name][_eq]=${encodeURIComponent(category)}&limit=-1`
+    const response = await api.get<DirectusResponse<DirectusExercise>>(
+      `/items/exercises?fields=id,name,description,category.id,category.name&filter[category][name][_eq]=${encodeURIComponent(category)}&limit=-1`
     );
 
-    if (!response.ok) {
-      throw new Error(`Directus error: ${response.statusText}`);
-    }
+    console.log('[directusApi] fetchExercisesByCategory response:', response);
 
-    const data: DirectusResponse<DirectusExercise> = await response.json();
+    const data = Array.isArray(response) ? response : (response?.data || []);
 
-    return data.data.map((item: DirectusExercise) => ({
+    console.log('[directusApi] fetchExercisesByCategory data:', data);
+
+    const result = data.map((item: DirectusExercise) => ({
       id: item.id,
       name: item.name || "",
       category: category,
       description: item.description || "",
-      image: item.image
-        ? {
-            url: getImageUrl(item.image.id),
-            alternativeText: item.image.title || item.name,
-          }
-        : undefined,
     }));
+
+    console.log('[directusApi] fetchExercisesByCategory result:', result);
+
+    return result;
   } catch (error) {
-    console.error("Failed to fetch exercises by category from Directus:", error);
+    logger.error("Failed to fetch exercises by category from Directus:", error);
     throw error;
   }
 }
@@ -126,20 +131,24 @@ export async function fetchExercisesByCategory(
  */
 export async function fetchCategories(): Promise<string[]> {
   try {
-    const response = await fetch(`${DIRECTUS_URL}/items/categories?fields=id,name&limit=-1`);
+    const response = await api.get<DirectusResponse<DirectusCategory>>(
+      '/items/categories?fields=id,name&limit=-1'
+    );
 
-    if (!response.ok) {
-      throw new Error(`Directus error: ${response.statusText}`);
-    }
+    console.log('[directusApi] fetchCategories response:', response);
 
-    const data: DirectusResponse<DirectusCategory> = await response.json();
+    const data = Array.isArray(response) ? response : (response?.data || []);
+
+    console.log('[directusApi] fetchCategories data:', data);
 
     // Получаем названия всех категорий
-    const categories = data.data.map((item: DirectusCategory) => item.name);
+    const categories = data.map((item: any) => item.name);
+
+    console.log('[directusApi] fetchCategories result:', categories);
 
     return categories.sort();
   } catch (error) {
-    console.error("Failed to fetch categories from Directus:", error);
+    logger.error("Failed to fetch categories from Directus:", error);
     throw error;
   }
 }
@@ -149,31 +158,25 @@ export async function fetchCategories(): Promise<string[]> {
  */
 export async function fetchExerciseById(id: string): Promise<Exercise> {
   try {
-    const response = await fetch(
-      `${DIRECTUS_URL}/items/exercises/${id}?fields=*,category.id,category.name,image.id,image.filename_disk`
+    const response = await api.get<any>(
+      `/items/exercises/${id}?fields=id,name,description,category.id,category.name`
     );
 
-    if (!response.ok) {
-      throw new Error(`Directus error: ${response.statusText}`);
+    // Directus returns { data: {...} } for single item GET, or {...} directly
+    const data = response?.data ?? response;
+
+    if (!data) {
+      throw new Error(`Exercise with id ${id} not found`);
     }
 
-    const data = await response.json();
-    const item: DirectusExercise = data.data;
-
     return {
-      id: item.id,
-      name: item.name || "",
-      category: item.category?.name || "Без категории",
-      description: item.description || "",
-      image: item.image
-        ? {
-            url: getImageUrl(item.image.id),
-            alternativeText: item.image.title || item.name,
-          }
-        : undefined,
+      id: String(data.id),
+      name: data.name || "",
+      category: data.category?.name || "Без категории",
+      description: data.description || "",
     };
   } catch (error) {
-    console.error("Failed to fetch exercise by ID from Directus:", error);
+    logger.error("Failed to fetch exercise by ID from Directus:", error);
     throw error;
   }
 }

@@ -186,11 +186,6 @@ async function request<T>(
 
   const method = init.method || 'GET';
 
-  // Add Prefer header for POST/PATCH to get response back from PostgREST
-  if ((method === 'POST' || method === 'PATCH') && !headers.has('Prefer')) {
-    headers.set('Prefer', 'return=representation');
-  }
-
   // Debug logging
   console.log(`[API] ${method} ${url}`, {
     hasInitData,

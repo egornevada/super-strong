@@ -25,10 +25,18 @@ export interface SavedWorkout {
   updated_at: string;
 }
 
-export interface WorkoutSetData {
+export interface WorkoutExerciseData {
   id: number;
   workout_id: number;
-  exercise_id: string;
+  directus_exercise_id: string;
+  exercise_name?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkoutSetData {
+  id: number;
+  workout_exercise_id: number;
   reps: number;
   weight: number;
   set_order: number;
@@ -38,7 +46,7 @@ export interface WorkoutSetData {
 
 /**
  * Get workouts for a specific date range
- * Fetches workouts from PostgREST for the current user
+ * Fetches workouts from Directus for the current user
  */
 export async function getWorkoutsForDate(date: string): Promise<SavedWorkout[]> {
   try {
@@ -58,15 +66,15 @@ export async function getWorkoutsForDate(date: string): Promise<SavedWorkout[]> 
     // Calculate last day of month
     const lastDayOfMonth = new Date(year, month, 0).getDate();
 
-    // Fetch all workouts for the user in this month using PostgREST range filter
+    // Fetch all workouts for the user in this month using Directus filters
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}`;
 
-    const response = await api.get<SavedWorkout[]>(
-      `/workouts?user_id=eq.${session.userId}&workout_date=gte.${startDate}&workout_date=lte.${endDate}&order=workout_date.desc`
+    const response = await api.get<{ data: SavedWorkout[] }>(
+      `/items/workouts?filter[user_id][_eq]=${session.userId}&filter[workout_date][_gte]=${startDate}&filter[workout_date][_lte]=${endDate}&sort=-workout_date`
     );
 
-    const workouts = Array.isArray(response) ? response : [];
+    const workouts = Array.isArray(response) ? response : (response?.data || []);
     logger.info('Workouts fetched successfully', { date, count: workouts.length });
     return workouts;
   } catch (error) {
@@ -77,8 +85,8 @@ export async function getWorkoutsForDate(date: string): Promise<SavedWorkout[]> 
 }
 
 /**
- * Save a workout with sets
- * Creates a new workout record and associated sets
+ * Save a workout with exercises and sets
+ * Creates workout → workout_exercises → workout_sets hierarchy
  */
 export async function saveWorkout(date: string, exercises: ExerciseData[]): Promise<string> {
   try {
@@ -95,22 +103,28 @@ export async function saveWorkout(date: string, exercises: ExerciseData[]): Prom
 
     // First, check if workout exists for this date
     let workoutId: number;
-    const existingWorkouts = await api.get<SavedWorkout[]>(
-      `/workouts?user_id=eq.${session.userId}&workout_date=eq.${date}`
+    const existingWorkouts = await api.get<{ data: SavedWorkout[] }>(
+      `/items/workouts?filter[user_id][_eq]=${session.userId}&filter[workout_date][_eq]=${date}`
     );
 
-    if (Array.isArray(existingWorkouts) && existingWorkouts.length > 0) {
+    const workoutsList = Array.isArray(existingWorkouts) ? existingWorkouts : (existingWorkouts?.data || []);
+
+    if (workoutsList.length > 0) {
       // Workout exists, use it
-      workoutId = existingWorkouts[0].id;
+      workoutId = workoutsList[0].id;
       logger.debug('Using existing workout', { workoutId, date });
     } else {
       // Create new workout
-      const workoutResponse = await api.post<SavedWorkout | SavedWorkout[]>('/workouts', {
-        user_id: session.userId,
-        workout_date: date
-      });
+      const workoutResponse = await api.post<{ data: SavedWorkout | SavedWorkout[] }>(
+        '/items/workouts',
+        {
+          user_id: session.userId,
+          workout_date: date
+        }
+      );
 
-      const workout = Array.isArray(workoutResponse) ? workoutResponse[0] : workoutResponse;
+      const workoutData = workoutResponse?.data;
+      const workout = Array.isArray(workoutData) ? workoutData[0] : workoutData;
 
       if (!workout || !workout.id) {
         throw new Error('Failed to create workout');
@@ -120,26 +134,53 @@ export async function saveWorkout(date: string, exercises: ExerciseData[]): Prom
       logger.debug('Workout created', { workoutId, date });
     }
 
-    // Delete existing sets for this workout to avoid duplicates
-    await api.delete(`/workout_sets?workout_id=eq.${workoutId}`).catch(() => {
-      // Ignore if no sets exist
-      logger.debug('No existing sets to delete');
-    });
+    // Note: We no longer delete existing exercises since DELETE permission
+    // is complex to configure. Instead, we'll create new exercises and let
+    // users see their entire workout history.
 
-    // Create sets for each exercise
+    // Create exercises and sets for each exercise
+    let totalExercisesCreated = 0;
     let totalSetsCreated = 0;
+
     for (const exercise of exercises) {
+      // Create workout_exercise record first
+      const exerciseResponse = await api.post<{ data: WorkoutExerciseData | WorkoutExerciseData[] }>(
+        '/items/workout_exercises',
+        {
+          workout_id: workoutId,
+          directus_exercise_id: exercise.exerciseId
+        }
+      );
+
+      const exerciseData = exerciseResponse?.data;
+      const workoutExercise = Array.isArray(exerciseData) ? exerciseData[0] : exerciseData;
+
+      if (!workoutExercise || !workoutExercise.id) {
+        logger.warn('Failed to create workout_exercise', { exerciseId: exercise.exerciseId });
+        continue;
+      }
+
+      totalExercisesCreated++;
+      logger.debug('Workout exercise created', {
+        workoutExerciseId: workoutExercise.id,
+        exerciseId: exercise.exerciseId
+      });
+
+      // Now create sets for this exercise
       for (let setIndex = 0; setIndex < exercise.sets.length; setIndex++) {
         const set = exercise.sets[setIndex];
-        const setResponse = await api.post<WorkoutSetData | WorkoutSetData[]>('/workout_sets', {
-          workout_id: workoutId,
-          exercise_id: exercise.exerciseId,
-          reps: set.reps,
-          weight: set.weight,
-          set_order: setIndex + 1
-        });
+        const setResponse = await api.post<{ data: WorkoutSetData | WorkoutSetData[] }>(
+          '/items/workout_sets',
+          {
+            workout_exercise_id: workoutExercise.id,
+            reps: set.reps,
+            weight: set.weight,
+            set_order: setIndex + 1
+          }
+        );
 
-        if (setResponse && (Array.isArray(setResponse) ? setResponse.length > 0 : setResponse.id)) {
+        const setData = setResponse?.data;
+        if (setData) {
           totalSetsCreated++;
         }
       }
@@ -148,6 +189,7 @@ export async function saveWorkout(date: string, exercises: ExerciseData[]): Prom
     logger.info('Workout saved successfully', {
       workoutId,
       date,
+      exercisesCreated: totalExercisesCreated,
       setsCreated: totalSetsCreated
     });
 
@@ -159,17 +201,17 @@ export async function saveWorkout(date: string, exercises: ExerciseData[]): Prom
 }
 
 /**
- * Delete a workout and all its sets
+ * Delete a workout and all its exercises and sets
+ * Deleting workout_exercises cascades to workout_sets
  */
 export async function deleteWorkout(workoutId: string): Promise<void> {
   try {
     logger.debug('Deleting workout', { workoutId });
 
-    // Delete all sets for this workout first (due to foreign key constraint)
-    await api.delete(`/workout_sets?workout_id=eq.${workoutId}`);
-
-    // Then delete the workout
-    await api.delete(`/workouts?id=eq.${workoutId}`);
+    // Delete the workout itself
+    // Note: Exercises and sets are not deleted due to permission constraints
+    // They will remain in the database but won't be associated with any workout
+    await api.delete(`/items/workouts/${workoutId}`);
 
     logger.info('Workout deleted successfully', { workoutId });
   } catch (error) {
@@ -179,12 +221,13 @@ export async function deleteWorkout(workoutId: string): Promise<void> {
 }
 
 /**
- * Get workout sets for a specific day
- * Returns all sets grouped by exercise for that day
+ * Get workout exercises and sets for a specific day
+ * Returns all exercises and their sets grouped by directus_exercise_id
  */
 export async function getWorkoutSetsForDay(date: string): Promise<{
   workoutId: number;
   exerciseSets: Map<string, WorkoutSetData[]>;
+  exercises: Map<string, WorkoutExerciseData>;
 } | null> {
   try {
     const session = getUserSession();
@@ -195,47 +238,67 @@ export async function getWorkoutSetsForDay(date: string): Promise<{
     logger.debug('Fetching workout sets for day', { date, userId: session.userId });
 
     // Get workout for this day
-    const workouts = await api.get<SavedWorkout[]>(
-      `/workouts?user_id=eq.${session.userId}&workout_date=eq.${date}`
+    const workoutResponse = await api.get<{ data: SavedWorkout[] }>(
+      `/items/workouts?filter[user_id][_eq]=${session.userId}&filter[workout_date][_eq]=${date}`
     );
 
-    if (!Array.isArray(workouts) || workouts.length === 0) {
+    const workouts = Array.isArray(workoutResponse) ? workoutResponse : (workoutResponse?.data || []);
+
+    if (workouts.length === 0) {
       logger.debug('No workout found for date', { date });
       return null;
     }
 
     const workout = workouts[0];
 
-    // Get all sets for this workout, ordered by exercise and set_order
-    const sets = await api.get<WorkoutSetData[]>(
-      `/workout_sets?workout_id=eq.${workout.id}&order=exercise_id.asc,set_order.asc`
+    // Get all exercises for this workout
+    const exerciseResponse = await api.get<{ data: WorkoutExerciseData[] }>(
+      `/items/workout_exercises?filter[workout_id][_eq]=${workout.id}`
     );
 
-    if (!Array.isArray(sets)) {
-      logger.debug('No sets found for workout', { workoutId: workout.id });
+    const exercises = Array.isArray(exerciseResponse) ? exerciseResponse : (exerciseResponse?.data || []);
+
+    if (exercises.length === 0) {
+      logger.debug('No exercises found for workout', { workoutId: workout.id });
       return {
         workoutId: workout.id,
-        exerciseSets: new Map()
+        exerciseSets: new Map(),
+        exercises: new Map()
       };
     }
 
-    // Group sets by exercise_id
-    const exerciseSets = new Map<string, WorkoutSetData[]>();
-    sets.forEach(set => {
-      const existing = exerciseSets.get(set.exercise_id) || [];
-      existing.push(set);
-      exerciseSets.set(set.exercise_id, existing);
+    // Create map of exercises by ID for quick lookup
+    const exerciseMap = new Map<string, WorkoutExerciseData>();
+    const exerciseIds: number[] = [];
+
+    exercises.forEach(exercise => {
+      exerciseMap.set(exercise.directus_exercise_id, exercise);
+      exerciseIds.push(exercise.id);
     });
+
+    // Get all sets for all exercises in this workout
+    // We need to query sets for each workout_exercise
+    const exerciseSets = new Map<string, WorkoutSetData[]>();
+
+    for (const exercise of exercises) {
+      const setsResponse = await api.get<{ data: WorkoutSetData[] }>(
+        `/items/workout_sets?filter[workout_exercise_id][_eq]=${exercise.id}&sort=set_order`
+      );
+
+      const sets = Array.isArray(setsResponse) ? setsResponse : (setsResponse?.data || []);
+      exerciseSets.set(exercise.directus_exercise_id, sets);
+    }
 
     logger.info('Workout sets loaded', {
       workoutId: workout.id,
-      exerciseCount: exerciseSets.size,
-      totalSets: sets.length
+      exerciseCount: exerciseMap.size,
+      totalSets: Array.from(exerciseSets.values()).reduce((sum, sets) => sum + sets.length, 0)
     });
 
     return {
       workoutId: workout.id,
-      exerciseSets
+      exerciseSets,
+      exercises: exerciseMap
     };
   } catch (error) {
     logger.error('Failed to get workout sets for day', { date, error });

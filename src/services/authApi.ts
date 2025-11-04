@@ -23,10 +23,14 @@ export interface CreateUserPayload {
  */
 export async function getUserByUsername(username: string): Promise<UserData | null> {
   try {
-    const response = await api.get<UserData[]>(`/users?username=eq.${encodeURIComponent(username)}`);
+    const response = await api.get<{ data: UserData[] }>(
+      `/items/users?filter[username][_eq]=${encodeURIComponent(username)}`
+    );
 
-    if (response && response.length > 0) {
-      return response[0];
+    const users = Array.isArray(response) ? response : (response?.data || []);
+
+    if (users && users.length > 0) {
+      return users[0];
     }
 
     return null;
@@ -41,10 +45,14 @@ export async function getUserByUsername(username: string): Promise<UserData | nu
  */
 export async function getUserByTelegramId(telegramId: number): Promise<UserData | null> {
   try {
-    const response = await api.get<UserData[]>(`/users?telegram_id=eq.${telegramId}`);
+    const response = await api.get<{ data: UserData[] }>(
+      `/items/users?filter[telegram_id][_eq]=${telegramId}`
+    );
 
-    if (response && response.length > 0) {
-      return response[0];
+    const users = Array.isArray(response) ? response : (response?.data || []);
+
+    if (users && users.length > 0) {
+      return users[0];
     }
 
     return null;
@@ -61,10 +69,11 @@ export async function createUser(payload: CreateUserPayload): Promise<UserData> 
   try {
     logger.debug('Creating new user', { username: payload.username });
 
-    const response = await api.post<UserData | UserData[]>('/users', payload);
+    const response = await api.post<{ data: UserData | UserData[] }>('/items/users', payload);
 
-    // PostgREST with Prefer: return=representation returns array
-    const user = Array.isArray(response) ? response[0] : response;
+    // Directus returns { data: {...} } for single create
+    const responseData = response?.data;
+    const user = Array.isArray(responseData) ? responseData[0] : responseData;
 
     if (!user || !user.id) {
       throw new Error('Failed to create user - invalid response');
@@ -90,10 +99,14 @@ export async function updateUser(userId: number, payload: Partial<CreateUserPayl
   try {
     logger.debug('Updating user', { userId, updates: Object.keys(payload) });
 
-    const response = await api.patch<UserData | UserData[]>(`/users?id=eq.${userId}`, payload);
+    const response = await api.patch<{ data: UserData | UserData[] }>(
+      `/items/users/${userId}`,
+      payload
+    );
 
-    // PostgREST with Prefer: return=representation returns array
-    const user = Array.isArray(response) ? response[0] : response;
+    // Directus returns { data: {...} } for single update
+    const responseData = response?.data;
+    const user = Array.isArray(responseData) ? responseData[0] : responseData;
 
     if (!user || !user.id) {
       throw new Error('Failed to update user - invalid response');
