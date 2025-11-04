@@ -109,10 +109,11 @@ export interface ProfileStatsSummary {
   totalWeight: number;
   workoutsCompleted: number;
   daysSinceFirstWorkout: number;
+  daysSinceUserCreation: number;
   firstWorkoutDate?: string;
 }
 
-const computeSummary = (store: ProfileStatsStore): ProfileStatsSummary => {
+const computeSummary = (store: ProfileStatsStore, userCreatedAt?: string): ProfileStatsSummary => {
   const entries = Object.entries(store.workouts);
 
   if (!entries.length) {
@@ -121,6 +122,7 @@ const computeSummary = (store: ProfileStatsStore): ProfileStatsSummary => {
       totalWeight: 0,
       workoutsCompleted: 0,
       daysSinceFirstWorkout: 0,
+      daysSinceUserCreation: userCreatedAt ? differenceInDays(userCreatedAt) : 0,
       firstWorkoutDate: undefined,
     };
   }
@@ -153,23 +155,25 @@ const computeSummary = (store: ProfileStatsStore): ProfileStatsSummary => {
     totalWeight: clampTwoDecimals(totalWeight),
     workoutsCompleted,
     daysSinceFirstWorkout: earliestDate ? differenceInDays(earliestDate) : 0,
+    daysSinceUserCreation: userCreatedAt ? differenceInDays(userCreatedAt) + 1 : 0,
     firstWorkoutDate: earliestDate,
   };
 };
 
 export const PROFILE_STATS_STORAGE_KEY = STORAGE_KEY;
 
-export const getProfileStats = (): ProfileStatsSummary => {
+export const getProfileStats = (userCreatedAt?: string): ProfileStatsSummary => {
   const store = readStore();
-  return computeSummary(store);
+  return computeSummary(store, userCreatedAt);
 };
 
 export const recordProfileWorkout = (
   workoutDate: string,
-  exercises: Array<{ trackSets: Set[] }>
+  exercises: Array<{ trackSets: Set[] }>,
+  userCreatedAt?: string
 ): ProfileStatsSummary => {
   if (!workoutDate) {
-    return getProfileStats();
+    return getProfileStats(userCreatedAt);
   }
 
   const store = readStore();
@@ -186,7 +190,7 @@ export const recordProfileWorkout = (
   }
 
   writeStore(store);
-  return computeSummary(store);
+  return computeSummary(store, userCreatedAt);
 };
 
 export const removeProfileWorkout = (workoutDate: string) => {

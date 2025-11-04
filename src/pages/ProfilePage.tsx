@@ -54,18 +54,23 @@ const formatSetsLabel = (sets: number) => {
 export function ProfilePage({ onClose }: ProfilePageProps) {
   const { user: telegramUser } = useTelegram();
   const { sheet } = useProfileSheet();
-  const [stats, setStats] = useState<ProfileStatsSummary>(() => getProfileStats());
+  const [stats, setStats] = useState<ProfileStatsSummary>(() => {
+    const session = getUserSession();
+    return getProfileStats(session?.created_at);
+  });
 
   useEffect(() => {
     if (sheet.isOpen) {
-      setStats(getProfileStats());
+      const session = getUserSession();
+      setStats(getProfileStats(session?.created_at));
     }
   }, [sheet.isOpen]);
 
   useEffect(() => {
     const handleStorage = (event: StorageEvent) => {
       if (event.key === PROFILE_STATS_STORAGE_KEY) {
-        setStats(getProfileStats());
+        const session = getUserSession();
+        setStats(getProfileStats(session?.created_at));
       }
     };
 
@@ -91,52 +96,45 @@ export function ProfilePage({ onClose }: ProfilePageProps) {
     return 'Гость, браузер';
   }, [telegramUser]);
 
-  const daysUsingAppLabel = formatDaysLabel(stats.daysSinceFirstWorkout);
+  const daysUsingAppLabel = formatDaysLabel(stats.daysSinceUserCreation);
   const totalWeightLabel = formatWeightLabel(stats.totalWeight);
-  const totalSetsLabel = formatSetsLabel(stats.totalSets);
-  const workoutsInfo =
-    stats.workoutsCompleted > 0
-      ? `Сохранено тренировок: ${numberFormatter.format(stats.workoutsCompleted)}`
-      : 'Скоро тут будет больше статистики';
+  const workoutDaysLabel = formatDaysLabel(stats.workoutsCompleted);
 
   return (
     <PageLayout title="Профиль" onClose={onClose}>
-      <h2 className="text-fg-1 text-2xl font-semibold mb-6">Профиль</h2>
-
-      {/* Account section */}
-      <div className="mb-6">
-        <div className="flex justify-between items-center mb-3">
-          <span className="text-fg-3">Аккаунт</span>
-          <span className="text-fg-1 font-medium truncate max-w-[60%]" title={accountLabel}>
-            {accountLabel}
-          </span>
-        </div>
-      </div>
-
-      {/* Stats section */}
-      <div className="space-y-4">
-        <div className="flex justify-between items-center py-3 border-b border-stroke-1">
-          <span className="text-fg-3">Пользуетесь Super Strong</span>
-          <span className="text-fg-1 font-medium">{daysUsingAppLabel}</span>
-        </div>
-
-        <div className="flex justify-between items-center py-3 border-b border-stroke-1">
-          <span className="text-fg-3">Всего подняли</span>
-          <span className="text-fg-1 font-medium">{totalWeightLabel}</span>
-        </div>
-
-        <div className="py-3">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-fg-3">Занимались дней</span>
-            <span className="text-fg-1 font-medium">{totalSetsLabel}</span>
+      <div className="mx-4">
+        {/* Account section */}
+        <div className="pb-4 border-b border-stroke-1">
+          <div className="flex justify-between items-center">
+            <span className="text-fg-3">Аккаунт</span>
+            <span className="text-fg-1 font-medium truncate max-w-[60%]" title={accountLabel}>
+              {accountLabel}
+            </span>
           </div>
-          <p className="text-fg-4 text-sm">{workoutsInfo}</p>
         </div>
-      </div>
 
-      {/* Placeholder for more stats */}
-      <div className="mt-8 pt-8 border-t border-stroke-1">
-        <p className="text-fg-3 text-center text-sm">Дополнительные статистики загружаются...</p>
+        {/* Stats section */}
+        <div className="space-y-0">
+          <div className="flex justify-between items-center py-4 border-b border-stroke-1">
+            <span className="text-fg-3">Пользуетесь Super Strong</span>
+            <span className="text-fg-1 font-medium">{daysUsingAppLabel}</span>
+          </div>
+
+          <div className="flex justify-between items-center py-4 border-b border-stroke-1">
+            <span className="text-fg-3">Всего подняли</span>
+            <span className="text-fg-1 font-medium">{totalWeightLabel}</span>
+          </div>
+
+          <div className="flex justify-between items-center py-4 border-b border-stroke-1">
+            <span className="text-fg-3">Занимались дней</span>
+            <span className="text-fg-1 font-medium">{workoutDaysLabel}</span>
+          </div>
+        </div>
+
+        {/* Placeholder for more stats */}
+        <div className="py-4">
+          <p className="text-fg-3 text-center text-sm">Скоро тут появится больше статистики...</p>
+        </div>
       </div>
     </PageLayout>
   );

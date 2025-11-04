@@ -172,6 +172,7 @@ export function saveUserSession(user: UserData): void {
     userId: user.id,
     username: user.username,
     telegramId: user.telegram_id,
+    created_at: user.created_at,
     timestamp: Date.now()
   };
 
@@ -182,7 +183,7 @@ export function saveUserSession(user: UserData): void {
 /**
  * Get saved user session from localStorage
  */
-export function getUserSession(): { userId: number; username: string; telegramId?: number } | null {
+export function getUserSession(): { userId: number; username: string; telegramId?: number; created_at?: string } | null {
   try {
     const sessionJson = localStorage.getItem('super-strong-user-session');
     if (!sessionJson) return null;
@@ -191,7 +192,8 @@ export function getUserSession(): { userId: number; username: string; telegramId
     return {
       userId: session.userId,
       username: session.username,
-      telegramId: session.telegramId
+      telegramId: session.telegramId,
+      created_at: session.created_at
     };
   } catch (error) {
     logger.error('Error reading user session', error);

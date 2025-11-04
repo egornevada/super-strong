@@ -460,9 +460,11 @@ export default function App() {
 
     if (date) {
       const workoutDate = `${date.year}-${String(date.month + 1).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`;
+      const session = getUserSession();
       recordProfileWorkout(
         workoutDate,
-        exercises.map(({ trackSets }) => ({ trackSets }))
+        exercises.map(({ trackSets }) => ({ trackSets })),
+        session?.created_at
       );
     }
 

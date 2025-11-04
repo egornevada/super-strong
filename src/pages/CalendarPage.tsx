@@ -53,7 +53,7 @@ export function CalendarPage({ onDayClick, onMonthChange, workoutDays = [], save
             exercises.forEach((exercise: any) => {
               if (exercise.trackSets && Array.isArray(exercise.trackSets)) {
                 exercise.trackSets.forEach((set: any) => {
-                  totalWeight += set.weight || 0;
+                  totalWeight += (set.reps || 0) * (set.weight || 0);
                 });
               }
             });
