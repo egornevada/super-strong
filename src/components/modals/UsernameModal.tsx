@@ -61,51 +61,55 @@ export function UsernameModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-bg-1 rounded-3xl shadow-card w-[90%] max-w-sm p-6 space-y-4">
-        {/* Title */}
-        <div className="text-center mb-6">
-          <h2 className="text-fg-1 text-xl font-semibold">Подключитесь к аккаунту</h2>
-          <p className="text-fg-2 text-sm mt-2">
+      <div className="bg-bg-1 shadow-card w-[90%] max-w-sm" style={{ borderRadius: '20px' }}>
+        {/* Text container */}
+        <div style={{ padding: '16px', paddingBottom: 0 }}>
+          <h2 className="text-fg-1 text-xl font-semibold" style={{ margin: 0, marginBottom: '8px' }}>Подключитесь к аккаунту</h2>
+          <p className="text-fg-2 text-sm" style={{ margin: 0 }}>
             Введите ваш никнейм для подключения к существующему аккаунту или создания нового
           </p>
         </div>
 
-        {/* Username Input */}
-        <TextField
-          label="Никнейм"
-          value={username}
-          onChange={(value) => {
-            setUsername(value);
-            setLocalError('');
-          }}
-          disabled={effectiveIsLoading}
-        />
+        {/* Content container */}
+        <div style={{ padding: '16px' }}>
+          {/* Username Input */}
+          <TextField
+            label="Никнейм"
+            value={username}
+            onChange={(value) => {
+              setUsername(value);
+              setLocalError('');
+            }}
+            disabled={effectiveIsLoading}
+          />
 
-        {/* Error Message */}
-        {effectiveError && (
-          <div className="bg-bg-3 border border-fg-3 rounded-xl p-3">
-            <p className="text-fg-1 text-sm">{effectiveError}</p>
-          </div>
-        )}
+          {/* Error Message */}
+          {effectiveError && (
+            <div className="bg-bg-3 border border-fg-3 rounded-xl p-3" style={{ marginTop: '12px' }}>
+              <p className="text-fg-1 text-sm">{effectiveError}</p>
+            </div>
+          )}
 
-        {/* Loading Message */}
-        {effectiveIsLoading && (
-          <div className="text-center">
-            <p className="text-fg-2 text-sm">Подключение...</p>
-          </div>
-        )}
+          {/* Loading Message */}
+          {effectiveIsLoading && (
+            <div style={{ marginTop: '12px' }}>
+              <p className="text-fg-2 text-sm">Подключение...</p>
+            </div>
+          )}
 
-        {/* Submit Button */}
-        <Button
-          priority="primary"
-          tone="default"
-          size="md"
-          className="w-full"
-          onClick={handleSubmit}
-          disabled={effectiveIsLoading}
-        >
-          {effectiveIsLoading ? 'Подключение...' : 'Подключить'}
-        </Button>
+          {/* Submit Button */}
+          <Button
+            priority="primary"
+            tone="default"
+            size="md"
+            className="w-full"
+            onClick={handleSubmit}
+            disabled={effectiveIsLoading}
+            style={{ marginTop: '12px' }}
+          >
+            {effectiveIsLoading ? 'Подключение...' : 'Подключить'}
+          </Button>
+        </div>
       </div>
     </div>
   );

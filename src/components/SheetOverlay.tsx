@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 
 interface SheetOverlayProps {
   isOpen: boolean
@@ -7,6 +7,22 @@ interface SheetOverlayProps {
 }
 
 export function SheetOverlay({ isOpen, onClose, children }: SheetOverlayProps) {
+  const [topOffset, setTopOffset] = useState(24)
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 640) {
+        setTopOffset(48)
+      } else {
+        setTopOffset(24)
+      }
+    }
+
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   useEffect(() => {
     if (isOpen) {
       // Предотвращаем скролл body
@@ -33,14 +49,14 @@ export function SheetOverlay({ isOpen, onClose, children }: SheetOverlayProps) {
         onClick={onClose}
       />
 
-      {/* Sheet container - выезжает снизу, оставляя 24px сверху */}
+      {/* Sheet container - выезжает снизу, оставляя отступ сверху */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-50"
+        className="fixed bottom-0 left-0 right-0 z-50 flex justify-center"
         style={{
           transform: isOpen ? 'translateY(0)' : 'translateY(100%)',
           opacity: isOpen ? 1 : 0,
-          height: 'calc(100dvh - 24px)',
-          top: '24px',
+          height: `calc(100dvh - ${topOffset}px)`,
+          top: `${topOffset}px`,
           visibility: isOpen ? 'visible' : 'hidden',
           transition: isOpen
             ? 'transform 200ms ease-out, opacity 200ms ease-out, visibility 200ms ease-out'
@@ -48,7 +64,7 @@ export function SheetOverlay({ isOpen, onClose, children }: SheetOverlayProps) {
         }}
       >
         {/* Sheet content с rounded corners только сверху */}
-        <div className="bg-bg-1 rounded-t-3xl overflow-hidden flex flex-col h-full">
+        <div className="bg-bg-1 rounded-t-3xl overflow-hidden flex flex-col h-full" style={{ maxWidth: '632px', width: '100%' }}>
           {children}
         </div>
       </div>

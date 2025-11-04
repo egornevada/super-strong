@@ -31,49 +31,42 @@ export const AlertDialog = React.forwardRef<HTMLDivElement, AlertDialogProps>(
         className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
       >
         {/* Dialog content - centered modal */}
-        <div className="w-full bg-bg-1 max-w-[320px] rounded-2xl p-6">
-          {/* Title */}
-          <h2
-            className="text-fg-1 mb-2"
-            style={{
-              fontFamily: 'Inter, sans-serif',
-              fontSize: '18px',
-              fontWeight: 600,
-              lineHeight: '24px',
-              letterSpacing: '-2%',
-              margin: 0,
-              marginBottom: '8px'
-            }}
-          >
-            {title}
-          </h2>
+        <div className="w-full bg-bg-1 max-w-[320px]" style={{ borderRadius: '20px' }}>
+          {/* Text container */}
+          <div style={{ padding: '16px', paddingBottom: 0 }}>
+            {/* Title */}
+            <h2
+              className="text-fg-1"
+              style={{
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '18px',
+                fontWeight: 600,
+                lineHeight: '24px',
+                letterSpacing: '-2%',
+                margin: 0,
+                marginBottom: '8px'
+              }}
+            >
+              {title}
+            </h2>
 
-          {/* Message */}
-          <p
-            className="text-fg-2 mb-6"
-            style={{
-              fontFamily: 'Inter, sans-serif',
-              fontSize: '14px',
-              lineHeight: '20px',
-              letterSpacing: '-2%',
-              margin: 0,
-              marginBottom: '24px'
-            }}
-          >
-            {message}
-          </p>
+            {/* Message */}
+            <p
+              className="text-fg-2"
+              style={{
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '14px',
+                lineHeight: '20px',
+                letterSpacing: '-2%',
+                margin: 0
+              }}
+            >
+              {message}
+            </p>
+          </div>
 
           {/* Buttons - stack vertically */}
-          <div className="flex flex-col gap-3" style={{ gap: '12px' }}>
-            <Button
-              priority="secondary"
-              tone="default"
-              size="md"
-              className="w-full"
-              onClick={onCancel}
-            >
-              {cancelText}
-            </Button>
+          <div className="flex flex-col gap-3" style={{ gap: '8px', padding: '16px' }}>
             <Button
               priority="primary"
               tone={isDangerous ? 'error' : 'brand'}
@@ -82,6 +75,15 @@ export const AlertDialog = React.forwardRef<HTMLDivElement, AlertDialogProps>(
               onClick={onConfirm}
             >
               {confirmText}
+            </Button>
+            <Button
+              priority="secondary"
+              tone="default"
+              size="md"
+              className="w-full"
+              onClick={onCancel}
+            >
+              {cancelText}
             </Button>
           </div>
         </div>

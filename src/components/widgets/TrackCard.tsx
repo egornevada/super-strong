@@ -16,12 +16,13 @@ export interface TrackCardProps {
   sets?: Set[];
   onAddSet?: (reps: number, weight: number) => void;
   onUpdateSet?: (index: number, reps: number, weight: number) => void;
+  onDeleteSet?: (index: number) => void;
   onImageClick?: (id: string) => void;
 }
 
 export const TrackCard = React.forwardRef<HTMLDivElement, TrackCardProps>(
   (
-    { id = '', name, image, subtitle, sets = [], onAddSet, onUpdateSet, onImageClick },
+    { id = '', name, image, subtitle, sets = [], onAddSet, onUpdateSet, onDeleteSet, onImageClick },
     ref
   ) => {
     const [isModalOpen, setIsModalOpen] = React.useState(false);
@@ -70,6 +71,13 @@ export const TrackCard = React.forwardRef<HTMLDivElement, TrackCardProps>(
         onUpdateSet?.(editingSetIndex, reps, weight);
       } else {
         onAddSet?.(reps, weight);
+      }
+      handleModalClose();
+    };
+
+    const handleDeleteSet = (setIndex?: number) => {
+      if (setIndex !== undefined) {
+        onDeleteSet?.(setIndex);
       }
       handleModalClose();
     };
@@ -234,8 +242,10 @@ export const TrackCard = React.forwardRef<HTMLDivElement, TrackCardProps>(
           setNumber={modalSetNumber}
           mode={modalMode}
           initialValues={editingSet}
+          setIndex={editingSetIndex ?? undefined}
           onClose={handleModalClose}
           onConfirm={handleConfirmSet}
+          onDelete={handleDeleteSet}
         />
       </div>
     );

@@ -139,6 +139,26 @@ export function MyExercisesPage({
     await handleAutoSaveWorkout(updated);
   };
 
+  const handleDeleteSet = async (exerciseIndex: number, setIndex: number) => {
+    const updated = [...exercisesWithSets];
+    const target = updated[exerciseIndex];
+    if (!target) return;
+
+    const trackSets = [...target.trackSets];
+    if (!trackSets[setIndex]) {
+      return;
+    }
+
+    trackSets.splice(setIndex, 1);
+    updated[exerciseIndex] = { ...target, trackSets };
+    logger.debug('Set deleted', { exerciseName: target.name, setIndex: setIndex + 1, remainingSets: trackSets.length });
+
+    setExercisesWithSets(updated);
+
+    // Save immediately
+    await handleAutoSaveWorkout(updated);
+  };
+
   const handleSelectMoreExercises = () => {
     logger.warn('[TRACKING] handleSelectMoreExercises called');
     // Notify parent to update state before navigating
@@ -274,6 +294,7 @@ export function MyExercisesPage({
                   sets={exercise.trackSets}
                   onAddSet={(reps, weight) => handleAddSet(index, reps, weight)}
                   onUpdateSet={(setIndex, reps, weight) => handleUpdateSet(index, setIndex, reps, weight)}
+                  onDeleteSet={(setIndex) => handleDeleteSet(index, setIndex)}
                   onImageClick={handleExerciseImageClick}
                 />
               ))}

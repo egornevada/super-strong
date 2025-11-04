@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Button } from '../main/Button';
 import { TextField } from '../TextField';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 
 export interface SetModalProps {
   isOpen: boolean;
@@ -12,8 +13,10 @@ export interface SetModalProps {
     weight: number;
   };
   confirmLabel?: string;
+  setIndex?: number;
   onClose?: () => void;
   onConfirm?: (reps: number, weight: number) => void;
+  onDelete?: (setIndex?: number) => void;
 }
 
 export const SetModal = React.forwardRef<HTMLDivElement, SetModalProps>(
@@ -25,8 +28,10 @@ export const SetModal = React.forwardRef<HTMLDivElement, SetModalProps>(
       mode = 'create',
       initialValues,
       confirmLabel,
+      setIndex,
       onClose,
-      onConfirm
+      onConfirm,
+      onDelete
     },
     ref
   ) => {
@@ -115,7 +120,7 @@ export const SetModal = React.forwardRef<HTMLDivElement, SetModalProps>(
         className="fixed inset-0 bg-black/50 flex items-end justify-center z-50 sm:px-6"
       >
         {/* Modal content - bottom sheet style */}
-        <div className="w-full bg-bg-1 max-w-[640px]" style={{ padding: '16px', borderRadius: '16px 16px 0 0' }}>
+        <div className="w-full bg-bg-1" style={{ maxWidth: '632px', padding: '16px', borderRadius: '16px 16px 0 0' }}>
           {/* Set number label */}
           <p
             className="text-fg-3"
@@ -171,6 +176,17 @@ export const SetModal = React.forwardRef<HTMLDivElement, SetModalProps>(
 
           {/* Buttons */}
           <div className="flex gap-3" style={{ gap: '12px' }}>
+            {isEditMode && (
+              <Button
+                priority="tertiary"
+                tone="error"
+                size="md"
+                onClick={() => onDelete?.(setIndex)}
+                style={{ padding: '8px' }}
+              >
+                <DeleteOutlineIcon style={{ fontSize: '20px' }} />
+              </Button>
+            )}
             <Button
               priority="secondary"
               tone="default"

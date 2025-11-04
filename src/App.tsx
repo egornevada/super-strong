@@ -617,7 +617,7 @@ export default function App() {
             {/* Calendar - always in DOM, just hidden */}
             <div
               style={{ display: currentPage === 'calendar' ? 'flex' : 'none' }}
-              className={`w-full h-full flex-1 ${currentPage === 'calendar' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
+              className={`w-full h-full flex-1 sm:rounded-[24px] overflow-hidden ${currentPage === 'calendar' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
             >
               <CalendarPage
                 onDayClick={handleDayClick}
@@ -630,7 +630,7 @@ export default function App() {
             {/* Exercises */}
             <div
               style={{ display: currentPage === 'exercises' ? 'flex' : 'none' }}
-              className={`w-full h-full flex-1 ${currentPage === 'exercises' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
+              className={`w-full h-full flex-1 sm:rounded-[24px] overflow-hidden ${currentPage === 'exercises' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
             >
               <ExercisesPage
                 selectedDate={selectedDate}
@@ -643,7 +643,7 @@ export default function App() {
             {/* Tracking (My Exercises) */}
             <div
               style={{ display: currentPage === 'tracking' ? 'flex' : 'none' }}
-              className={`w-full h-full flex-1 ${currentPage === 'tracking' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
+              className={`w-full h-full flex-1 sm:rounded-[24px] overflow-hidden ${currentPage === 'tracking' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
             >
               <MyExercisesPage
                 selectedExercises={exercisesWithTrackedSetsMemo}
