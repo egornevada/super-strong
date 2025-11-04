@@ -122,7 +122,7 @@ export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
               />
             </div>
 
-            <h2 className="text-fg-1 text-right flex-1" style={{ fontSize: '20px', fontWeight: 500, lineHeight: '24px', letterSpacing: '-3%' }}>
+            <h2 className={`${isCurrentMonthDisplay ? 'text-fg-brand' : 'text-fg-1'} text-right flex-1 text-heading-md`}>
               {monthNames[displayMonth]} {displayYear}
             </h2>
           </div>
@@ -163,16 +163,16 @@ export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
         {/* Stats section - fixed at bottom */}
         {monthStats && (
           <div className="bg-bg-2 px-3 pt-4 pb-6 rounded-t-[16px] absolute bottom-0 left-0 right-0 z-10" style={{ height: 'auto' }}>
-            <h3 className="text-fg-1 mb-3" style={{ fontSize: '20px', fontWeight: 500, lineHeight: '24px', letterSpacing: '-3%' }}>Статистика за месяц</h3>
+            <h3 className="text-fg-1 mb-3 text-heading-md">Статистика за месяц</h3>
 
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <span className="text-fg-3">Поднали за {monthNames[displayMonth].toLowerCase()}</span>
+                <span className="text-fg-3">Подняли за {monthNames[displayMonth].toLowerCase()}</span>
                 <span className="text-fg-1 font-medium">{numberFormatter.format(monthStats.totalWeight || 0)} кг</span>
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="text-fg-3">Выполнено подходов</span>
+                <span className="text-fg-3">Занимались дней</span>
                 <span className="text-fg-1 font-medium">{monthStats.totalSets || 0}</span>
               </div>
             </div>

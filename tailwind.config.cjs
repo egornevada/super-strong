@@ -49,6 +49,9 @@ module.exports = {
         'focus-outside': 'var(--focus-outside)',
         'focus-inside': 'var(--focus-inside)',
       },
+      fontSize: {
+        'heading-md': ['20px', { fontWeight: 500, lineHeight: '24px', letterSpacing: '-3%' }],
+      },
     },
   },
   plugins: [],

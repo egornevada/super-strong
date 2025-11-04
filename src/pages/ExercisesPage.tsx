@@ -251,15 +251,7 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
                     className="px-3 mb-8"
                   >
                     {/* Category title */}
-                    <h2
-                      className="text-fg-1 mb-3"
-                      style={{
-                        fontFamily: 'Inter, sans-serif',
-                        fontSize: '20px',
-                        fontWeight: 500,
-                        lineHeight: '24px'
-                      }}
-                    >
+                    <h2 className="text-fg-1 text-heading-md mb-3">
                       {category}
                     </h2>
 

@@ -65,6 +65,22 @@ export default function App() {
         setIsLoadingWorkouts(true);
         logger.info('Starting app initialization...');
 
+        // Restore saved workouts from localStorage
+        try {
+          const savedWorkoutsStr = localStorage.getItem('savedWorkouts');
+          if (savedWorkoutsStr) {
+            const savedWorkoutsData = JSON.parse(savedWorkoutsStr);
+            const newSavedWorkouts = new Map<string, ExerciseWithTrackSets[]>();
+            Object.entries(savedWorkoutsData).forEach(([key, value]) => {
+              newSavedWorkouts.set(key, value as ExerciseWithTrackSets[]);
+            });
+            setSavedWorkouts(newSavedWorkouts);
+            logger.info('Restored saved workouts from localStorage', { count: newSavedWorkouts.size });
+          }
+        } catch (error) {
+          logger.warn('Failed to restore saved workouts from localStorage', error);
+        }
+
         // Load exercises cache
         const exercisesData = await fetchExercises();
         setAllExercises(exercisesData);
@@ -248,7 +264,7 @@ export default function App() {
   const [savedWorkouts, setSavedWorkouts] = useState<Map<string, ExerciseWithTrackSets[]>>(new Map());
   const [isClosing, setIsClosing] = useState(false);
 
-  const handleDayClick = async (day: number, month: number, year: number) => {
+  const handleDayClick = (day: number, month: number, year: number) => {
     // Сохраняем позицию скролла календаря перед переходом
     const calendarContainer = document.querySelector('.calendar-scroll-container');
     if (calendarContainer) {
@@ -256,50 +272,24 @@ export default function App() {
     }
     setSelectedDate({ day, month, year });
 
-    // Load data from server for this day
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const workoutData = await getWorkoutSetsForDay(dateStr);
+    // Проверяем, есть ли сохраненная тренировка для этого дня
+    const dateKey = `${day}-${month}-${year}`;
+    const savedExercises = savedWorkouts.get(dateKey);
 
-    if (workoutData && workoutData.exerciseSets.size > 0) {
-      // Есть сохранённая тренировка - загружаем упражнения и подходы
-      logger.info('Loading saved workout for day', { date: dateStr, exerciseCount: workoutData.exerciseSets.size });
-
-      const exercisesWithSets: ExerciseWithTrackSets[] = [];
-
-      // Для каждого упражнения в workout_sets
-      for (const [exerciseId, sets] of workoutData.exerciseSets) {
-        // Get exercise from cache/selected/directus with proper priority
-        const exercise = await getExerciseById(exerciseId);
-
-        if (exercise) {
-          // Преобразуем WorkoutSetData в Set format
-          const trackSets: Set[] = sets.map(set => ({
-            reps: set.reps,
-            weight: set.weight
-          }));
-
-          exercisesWithSets.push({
-            ...exercise,
-            trackSets
-          });
-        } else {
-          logger.warn('Failed to load exercise after all attempts', { exerciseId });
-        }
-      }
-
-      // Обновляем локальный Map для отображения
+    if (savedExercises && savedExercises.length > 0) {
+      // Если есть сохраненная тренировка - переходим на MyExercisesPage
+      logger.info('Loading saved workout for day', { dateKey, exerciseCount: savedExercises.length });
       const newTrackedSets = new Map<string, Set[]>();
-      exercisesWithSets.forEach(ex => {
+      savedExercises.forEach(ex => {
         // Ensure ID is string for consistent storage
         newTrackedSets.set(String(ex.id), ex.trackSets);
       });
-
       setExercisesWithTrackedSets(newTrackedSets);
-      setSelectedExercises(exercisesWithSets);
+      setSelectedExercises(savedExercises.map(({ ...ex }) => ex as Exercise));
       setCurrentPage('tracking');
     } else {
-      // Нет сохранённых упражнений - переходим на ExercisesPage для выбора
-      logger.info('No saved workout for day, showing exercise selection', { date: dateStr });
+      // Иначе переходим на ExercisesPage для выбора упражнений
+      logger.info('No saved workout for day, showing exercise selection', { dateKey });
       setSelectedExercises([]);
       setExercisesWithTrackedSets(new Map());
       setCurrentPage('exercises');
@@ -389,6 +379,18 @@ export default function App() {
     const newSavedWorkouts = new Map(savedWorkouts);
     newSavedWorkouts.set(dateKey, exercises);
     setSavedWorkouts(newSavedWorkouts);
+
+    // Сохраняем в localStorage для восстановления после перезагрузки
+    try {
+      const savingData: Record<string, ExerciseWithTrackSets[]> = {};
+      newSavedWorkouts.forEach((value, key) => {
+        savingData[key] = value;
+      });
+      localStorage.setItem('savedWorkouts', JSON.stringify(savingData));
+      logger.debug('Saved workouts to localStorage', { count: newSavedWorkouts.size });
+    } catch (error) {
+      logger.warn('Failed to save workouts to localStorage', error);
+    }
 
     // NOTE: Do NOT update exercisesWithTrackedSets here!
     // It causes MyExercisesPage's useEffect to overwrite local state with empty trackSets.

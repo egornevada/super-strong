@@ -127,7 +127,7 @@ export function ProfilePage({ onClose }: ProfilePageProps) {
 
         <div className="py-3">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-fg-3">Выполнено подходов</span>
+            <span className="text-fg-3">Занимались дней</span>
             <span className="text-fg-1 font-medium">{totalSetsLabel}</span>
           </div>
           <p className="text-fg-4 text-sm">{workoutsInfo}</p>

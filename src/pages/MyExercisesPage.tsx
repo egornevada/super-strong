@@ -132,15 +132,18 @@ export function MyExercisesPage({
       setIsSaving(true);
       const dateStr = `${selectedDate.year}-${String(selectedDate.month + 1).padStart(2, '0')}-${String(selectedDate.day).padStart(2, '0')}`;
 
-      // Convert exercises to API format (only those with sets)
+      // Convert all selected exercises to API format (including those without sets)
       const apiExercises = exercises
-        .filter(ex => ex.trackSets.length > 0)
         .map(ex => convertExerciseToApiFormat(ex.id, ex.trackSets));
 
-      // Always save the workout day, even if no sets were added
-      // This marks the day as having a workout attempt
+      // Only save if there are exercises selected for the workout
+      if (apiExercises.length === 0) {
+        logger.warn('[TRACKING] No exercises selected, skipping save');
+        setIsSaving(false);
+        return;
+      }
 
-      logger.warn('[TRACKING] Saving workout to server...', { dateStr, exerciseCount: apiExercises.length });
+      logger.warn('[TRACKING] Saving workout to server...', { dateStr, exerciseCount: apiExercises.length, hasEmptyExercises: apiExercises.some(ex => ex.sets.length === 0) });
       logger.info('Saving workout...', { dateStr, exerciseCount: apiExercises.length });
 
       // Save to server (save even if no exercises have sets)
@@ -166,6 +169,11 @@ export function MyExercisesPage({
 
   const handleBackToCalendar = async () => {
     logger.warn('[TRACKING] handleBackToCalendar called');
+
+    // Save workout before going back (even if no sets added yet)
+    logger.warn('[TRACKING] Saving workout before going back');
+    await handleAutoSaveWorkout();
+
     // Make sure any pending saves complete
     if (savingRef.current) {
       logger.warn('[TRACKING] Waiting for save to complete before going back...');
@@ -209,18 +217,7 @@ export function MyExercisesPage({
       <div className="flex-1 overflow-y-auto">
           {exercisesWithSets.length > 0 ? (
             <div className="px-3 py-4">
-              <h2
-                className="text-fg-1 font-semibold mb-4"
-                style={{
-                  fontFamily: 'Inter, sans-serif',
-                  fontSize: '20px',
-                  fontWeight: 500,
-                  lineHeight: '24px',
-                  letterSpacing: '-3%',
-                  margin: 0,
-                  marginBottom: '16px'
-                }}
-              >
+              <h2 className="text-fg-1 text-heading-md mb-4">
                 Ваши упражнения
               </h2>
               {exercisesWithSets.map((exercise, index) => (
