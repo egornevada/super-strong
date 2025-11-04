@@ -31,12 +31,20 @@ export function MyExercisesPage({
   onSelectMoreExercises,
   onSave
 }: MyExercisesPageProps) {
+  logger.info('[TRACKING] MyExercisesPage mounted/updated', {
+    selectedExercisesCount: selectedExercises?.length,
+    selectedDate,
+    hasOnBack: !!onBack,
+    hasOnSelectMoreExercises: !!onSelectMoreExercises,
+    hasOnSave: !!onSave
+  });
   const { openExerciseDetail } = useExerciseDetailSheet();
   const [exercisesWithSets, setExercisesWithSets] = useState<ExerciseWithTrackSets[]>(selectedExercises);
   const [isSaving, setIsSaving] = useState(false);
   const savingRef = React.useRef(false);
 
   useEffect(() => {
+    logger.info('[TRACKING] useEffect: selectedExercises changed', { count: selectedExercises?.length });
     setExercisesWithSets(selectedExercises);
   }, [selectedExercises]);
 
@@ -60,6 +68,7 @@ export function MyExercisesPage({
   ];
 
   const handleAddSet = async (exerciseIndex: number, reps: number, weight: number) => {
+    logger.warn('[TRACKING] handleAddSet called', { exerciseIndex, reps, weight });
     const updated = [...exercisesWithSets];
     const target = updated[exerciseIndex];
     if (!target) return;
@@ -71,7 +80,9 @@ export function MyExercisesPage({
     setExercisesWithSets(updated);
 
     // Save immediately
+    logger.warn('[TRACKING] About to save workout');
     await handleAutoSaveWorkout(updated);
+    logger.warn('[TRACKING] Workout save completed');
   };
 
   const handleUpdateSet = async (exerciseIndex: number, setIndex: number, reps: number, weight: number) => {
@@ -95,16 +106,25 @@ export function MyExercisesPage({
   };
 
   const handleSelectMoreExercises = () => {
+    logger.warn('[TRACKING] handleSelectMoreExercises called');
     // Notify parent to update state before navigating
     // Pass exercises with trackSets to parent
+    logger.warn('[TRACKING] Calling onSelectMoreExercises callback');
     onSelectMoreExercises?.(exercisesWithSets);
   };
 
   const handleAutoSaveWorkout = async (exercises: ExerciseWithTrackSets[] = exercisesWithSets) => {
-    if (!selectedDate || exercises.length === 0) return;
+    logger.warn('[TRACKING] handleAutoSaveWorkout called');
+    if (!selectedDate || exercises.length === 0) {
+      logger.warn('[TRACKING] Skipping save - no date or exercises');
+      return;
+    }
 
     // Prevent concurrent saves
-    if (savingRef.current) return;
+    if (savingRef.current) {
+      logger.warn('[TRACKING] Skipping save - already saving');
+      return;
+    }
 
     try {
       savingRef.current = true;
@@ -117,10 +137,12 @@ export function MyExercisesPage({
         .map(ex => convertExerciseToApiFormat(ex.id, ex.trackSets));
 
       if (apiExercises.length === 0) {
+        logger.warn('[TRACKING] No exercises with sets to save');
         logger.debug('No exercises with sets to save (auto-save skipped)');
         return;
       }
 
+      logger.warn('[TRACKING] Saving workout to server...', { dateStr, exerciseCount: apiExercises.length });
       logger.info('Saving workout...', { dateStr, exerciseCount: apiExercises.length });
 
       // Save to server
@@ -128,32 +150,40 @@ export function MyExercisesPage({
 
       // Update parent state to reflect new workout (adds dot to calendar)
       // This does NOT navigate away - it only updates the workoutDays state
+      logger.warn('[TRACKING] Calling onSave callback', { workoutId });
       onSave?.(exercises, selectedDate);
 
+      logger.warn('[TRACKING] Workout saved successfully', { workoutId });
       logger.info('Workout saved successfully', { workoutId, exerciseCount: apiExercises.length });
     } catch (error) {
+      logger.warn('[TRACKING] Error saving workout', error);
       logger.error('Failed to save workout', error);
       showTelegramAlert('Ошибка сохранения тренировки');
     } finally {
       savingRef.current = false;
       setIsSaving(false);
+      logger.warn('[TRACKING] Save attempt finished');
     }
   };
 
   const handleBackToCalendar = async () => {
+    logger.warn('[TRACKING] handleBackToCalendar called');
     // Make sure any pending saves complete
     if (savingRef.current) {
+      logger.warn('[TRACKING] Waiting for save to complete before going back...');
       logger.info('Waiting for save to complete before going back...');
       // Wait for saving to finish
       await new Promise(resolve => {
         const checkInterval = setInterval(() => {
           if (!savingRef.current) {
+            logger.warn('[TRACKING] Save finished, calling onBack now');
             clearInterval(checkInterval);
             resolve(null);
           }
         }, 100);
       });
     }
+    logger.warn('[TRACKING] Calling onBack');
     onBack?.();
   };
 

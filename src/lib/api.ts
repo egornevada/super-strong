@@ -214,7 +214,9 @@ async function request<T>(
       throw new Error(`API ${res.status}: ${errorText}`);
     }
 
-    const data = await res.json() as T;
+    // Handle empty response (common for DELETE requests)
+    const text = await res.text();
+    const data = text ? (JSON.parse(text) as T) : (null as T);
     console.log(`[API] ${method} ${url} - Success`, data);
 
     // Cache successful read requests

@@ -6,10 +6,11 @@ import { useSettingsSheet } from '../contexts/SettingsSheetContext';
 
 interface CalendarPageProps {
   onDayClick?: (day: number, month: number, year: number) => void;
+  onMonthChange?: (month: number, year: number) => void;
   workoutDays?: string[];
 }
 
-export function CalendarPage({ onDayClick, workoutDays = [] }: CalendarPageProps) {
+export function CalendarPage({ onDayClick, onMonthChange, workoutDays = [] }: CalendarPageProps) {
   const { openProfileSheet } = useProfileSheet();
   const { openSettingsSheet } = useSettingsSheet();
   const today = new Date();
@@ -17,6 +18,12 @@ export function CalendarPage({ onDayClick, workoutDays = [] }: CalendarPageProps
   const handleDayClick = (day: number, month: number, year: number) => {
     if (onDayClick) {
       onDayClick(day, month, year);
+    }
+  };
+
+  const handleMonthChange = (month: number, year: number) => {
+    if (onMonthChange) {
+      onMonthChange(month, year);
     }
   };
 
@@ -62,6 +69,7 @@ export function CalendarPage({ onDayClick, workoutDays = [] }: CalendarPageProps
             year={today.getFullYear()}
             workoutDays={workoutDays}
             onDayClick={handleDayClick}
+            onMonthChange={handleMonthChange}
           />
         </div>
       </div>

@@ -71,23 +71,33 @@ export default function App() {
             logger.info('Sync skipped (no auth) or nothing to sync');
           }
 
-          // Load workouts for all visible months (current year + adjacent months)
-          logger.info('Loading workouts for all months...');
+          // Load workouts for current month and adjacent months
+          logger.info('Loading workouts for current and adjacent months...');
           const today = new Date();
-          const currentYear = today.getFullYear();
-          const currentMonth = today.getMonth();
+          let currentYear = today.getFullYear();
+          let currentMonth = today.getMonth();
 
-          // Load previous year, current year, and next year months
-          for (let year = currentYear - 1; year <= currentYear + 1; year++) {
-            for (let month = 0; month < 12; month++) {
-              // Skip months in the past (before current month of previous year)
-              if (year === currentYear - 1 && month < currentMonth) continue;
-              // Skip months in the future (after current month of next year)
-              if (year === currentYear + 1 && month > currentMonth) continue;
-
-              await loadWorkoutsForCurrentMonth(month, year);
-            }
+          // Load previous month
+          let prevMonth = currentMonth - 1;
+          let prevYear = currentYear;
+          if (prevMonth < 0) {
+            prevMonth = 11;
+            prevYear = currentYear - 1;
           }
+          await loadWorkoutsForCurrentMonth(prevMonth, prevYear);
+
+          // Load current month
+          await loadWorkoutsForCurrentMonth(currentMonth, currentYear);
+
+          // Load next month
+          let nextMonth = currentMonth + 1;
+          let nextYear = currentYear;
+          if (nextMonth > 11) {
+            nextMonth = 0;
+            nextYear = currentYear + 1;
+          }
+          await loadWorkoutsForCurrentMonth(nextMonth, nextYear);
+
           logger.info('Workouts loading complete');
         } else {
           logger.info('App offline, skipping sync and workout load');
@@ -235,6 +245,32 @@ export default function App() {
       // Silently fail - use local data if available
     }
   }, []);
+
+  // Handle month changes in calendar - load adjacent months on demand
+  const handleCalendarMonthChange = useCallback(async (month: number, year: number) => {
+    logger.info('Calendar month changed', { month, year });
+
+    // Load previous month
+    let prevMonth = month - 1;
+    let prevYear = year;
+    if (prevMonth < 0) {
+      prevMonth = 11;
+      prevYear = year - 1;
+    }
+    await loadWorkoutsForCurrentMonth(prevMonth, prevYear);
+
+    // Load current month
+    await loadWorkoutsForCurrentMonth(month, year);
+
+    // Load next month
+    let nextMonth = month + 1;
+    let nextYear = year;
+    if (nextMonth > 11) {
+      nextMonth = 0;
+      nextYear = year + 1;
+    }
+    await loadWorkoutsForCurrentMonth(nextMonth, nextYear);
+  }, [loadWorkoutsForCurrentMonth]);
   const [selectedDate, setSelectedDate] = useState<SelectedDate | null>(null);
   const [calendarScrollPosition, setCalendarScrollPosition] = useState(0);
   const [selectedExercises, setSelectedExercises] = useState<Exercise[]>([]);
@@ -302,8 +338,12 @@ export default function App() {
   };
 
   const handleBackFromExercises = () => {
+    logger.warn('[PAGE] handleBackFromExercises called');
+    const stack = new Error().stack;
+    logger.warn('[PAGE] Stack trace', { stack });
     setIsClosing(true);
     setTimeout(() => {
+      logger.warn('[PAGE] Setting currentPage to calendar');
       setCurrentPage('calendar');
       setIsClosing(false);
       setSelectedExercises([]);
@@ -318,9 +358,11 @@ export default function App() {
   };
 
   const handleGoToMyExercises = (exercises: Exercise[]) => {
+    logger.warn('[PAGE] handleGoToMyExercises called', { exerciseCount: exercises.length });
     setIsClosing(true);
     setTimeout(() => {
       setSelectedExercises(exercises);
+      logger.warn('[PAGE] Setting currentPage to tracking');
       setCurrentPage('tracking');
       setIsClosing(false);
     }, 300);
@@ -400,8 +442,12 @@ export default function App() {
   };
 
   const handleBackFromMyExercises = () => {
+    logger.warn('[PAGE] handleBackFromMyExercises called');
+    const stack = new Error().stack;
+    logger.warn('[PAGE] Stack trace', { stack });
     setIsClosing(true);
     setTimeout(() => {
+      logger.warn('[PAGE] Setting currentPage to calendar');
       setCurrentPage('calendar');
       setIsClosing(false);
       setSelectedExercises([]);
@@ -417,6 +463,7 @@ export default function App() {
   };
 
   const handleSelectMoreExercisesFromMyPage = (exercises: ExerciseWithTrackSets[]) => {
+    logger.warn('[PAGE] handleSelectMoreExercisesFromMyPage called', { exerciseCount: exercises.length });
     // Сохраняем trackSets для каждого упражнения перед переходом
     const newTrackedSets = new Map(exercisesWithTrackedSets);
     exercises.forEach(ex => {
@@ -430,6 +477,7 @@ export default function App() {
     setSelectedExercises(exercisesToSelect);
     setIsClosing(true);
     setTimeout(() => {
+      logger.warn('[PAGE] Setting currentPage to exercises');
       setCurrentPage('exercises');
       setIsClosing(false);
     }, 300);
@@ -455,6 +503,11 @@ export default function App() {
     setOnGoToStorybook(() => handleGoToStorybook);
   }, [setOnGoToStorybook]);
 
+  // Log currentPage changes
+  useEffect(() => {
+    logger.warn('[PAGE] currentPage changed to:', { currentPage });
+  }, [currentPage]);
+
 
   return (
     <div className="flex items-center justify-center w-full h-screen bg-bg-3" style={{ height: '100dvh' }}>
@@ -471,6 +524,7 @@ export default function App() {
             >
               <CalendarPage
                 onDayClick={handleDayClick}
+                onMonthChange={handleCalendarMonthChange}
                 workoutDays={workoutDays}
               />
             </div>

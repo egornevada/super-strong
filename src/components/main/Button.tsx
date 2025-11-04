@@ -188,6 +188,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       children,
       disabled,
       style: externalStyle,
+      iconOnly: _iconOnly, // Extract but don't pass to DOM
       ...props
     },
     ref
@@ -198,7 +199,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const hasLeft = Boolean(leftIcon);
     const hasRight = Boolean(rightIcon);
     const hasIcon = hasLeft || hasRight;
-    const isIconOnly = (props as Record<string, unknown>).iconOnly ?? (!hasText && hasIcon);
+    const isIconOnly = _iconOnly ?? (!hasText && hasIcon);
     const showText = hasText && !isIconOnly;
 
     // A11y-подсказка в консоли: для иконочного варианта нужен aria-label

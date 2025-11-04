@@ -80,6 +80,56 @@ export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
       }
     }, [displayMonth, displayYear]);
 
+    // Detect visible month during scroll and trigger onMonthChange (with debounce)
+    React.useEffect(() => {
+      const scrollContainer = scrollContainerRef.current;
+      if (!scrollContainer) return;
+
+      let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
+
+      const handleScroll = () => {
+        // Clear previous timeout
+        if (scrollTimeout) clearTimeout(scrollTimeout);
+
+        // Debounce month change detection
+        scrollTimeout = setTimeout(() => {
+          // Find which month is currently visible at the top of the scroll container
+          const containerRect = scrollContainer.getBoundingClientRect();
+          const containerTop = containerRect.top;
+
+          let visibleMonth: number | null = null;
+          let visibleYear: number | null = null;
+
+          for (const [monthKey, monthElement] of Object.entries(monthRefs.current)) {
+            if (!monthElement) continue;
+
+            const monthRect = monthElement.getBoundingClientRect();
+            // Check if month element is in view (top within container)
+            if (monthRect.top <= containerTop + 100 && monthRect.bottom > containerTop + 100) {
+              const [m, y] = monthKey.split('-').map(Number);
+              visibleMonth = m;
+              visibleYear = y;
+              break;
+            }
+          }
+
+          // Call onMonthChange if visible month changed
+          if (visibleMonth !== null && visibleYear !== null &&
+              (visibleMonth !== displayMonth || visibleYear !== displayYear)) {
+            setDisplayMonth(visibleMonth);
+            setDisplayYear(visibleYear);
+            onMonthChange?.(visibleMonth, visibleYear);
+          }
+        }, 300); // Wait 300ms after scroll stops
+      };
+
+      scrollContainer.addEventListener('scroll', handleScroll);
+      return () => {
+        scrollContainer.removeEventListener('scroll', handleScroll);
+        if (scrollTimeout) clearTimeout(scrollTimeout);
+      };
+    }, [displayMonth, displayYear, onMonthChange]);
+
     // Генерируем месяцы для прокрутки (текущий год полностью + до и после)
     const months = React.useMemo(() => {
       const result = [];
