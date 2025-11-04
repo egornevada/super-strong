@@ -35,14 +35,6 @@ const formatDaysLabel = (days: number) => {
   return `${days} ${pluralize(days, ['день', 'дня', 'дней'])}`;
 };
 
-const formatWeightLabel = (weight: number) => {
-  if (!weight || weight <= 0) {
-    return '0 кг';
-  }
-
-  return `${numberFormatter.format(weight)} кг`;
-};
-
 const formatSetsLabel = (sets: number) => {
   if (!sets || sets <= 0) {
     return '0';
@@ -105,7 +97,6 @@ export function ProfilePage({ onClose }: ProfilePageProps) {
   }, [telegramUser]);
 
   const daysUsingAppLabel = formatDaysLabel(stats.daysSinceUserCreation);
-  const totalWeightLabel = formatWeightLabel(stats.totalWeight);
   const workoutDaysLabel = formatDaysLabel(stats.workoutsCompleted);
 
   return (
@@ -126,11 +117,6 @@ export function ProfilePage({ onClose }: ProfilePageProps) {
           <div className="flex justify-between items-center py-4 border-b border-stroke-1">
             <span className="text-fg-3">Пользуетесь Super Strong</span>
             <span className="text-fg-1 font-medium">{daysUsingAppLabel}</span>
-          </div>
-
-          <div className="flex justify-between items-center py-4 border-b border-stroke-1">
-            <span className="text-fg-3">Всего подняли</span>
-            <span className="text-fg-1 font-medium">{totalWeightLabel}</span>
           </div>
 
           <div className="flex justify-between items-center py-4 border-b border-stroke-1">
