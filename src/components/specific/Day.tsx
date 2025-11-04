@@ -16,7 +16,7 @@ export const Day = React.forwardRef<HTMLButtonElement, DayProps>(
   ({ day, month, year, isCurrentMonth = true, isCurrentDay = false, hasWorkout = false, onClick }, ref) => {
     // Не показываем дни из других месяцев
     if (!isCurrentMonth) {
-      return <div className="p-1" />;
+      return <div className="border-t" style={{ borderColor: 'var(--stroke-1)', padding: '4px', height: '64px' }} />;
     }
 
     // StateLayer для разных состояний

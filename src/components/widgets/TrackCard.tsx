@@ -81,80 +81,87 @@ export const TrackCard = React.forwardRef<HTMLDivElement, TrackCardProps>(
     return (
       <div
         ref={ref}
-        className="pt-3"
-        style={{ paddingTop: '12px' }}
+        className="bg-bg-2 rounded-2xl overflow-hidden mb-4"
+        style={{ boxShadow: '0 2px 8px 0 rgba(0, 0, 0, 0.15)' }}
       >
-        <div className="flex items-start gap-3" style={{ gap: '12px' }}>
-          <div
-            className="flex-shrink-0 bg-bg-3 rounded-xl flex items-center justify-center overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
-            style={{ width: '56px', height: '56px' }}
-            onClick={handleImageClick}
-          >
-            {image ? (
-              image
-            ) : (
-              <svg
-                className="w-7 h-7 text-fg-3"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-            )}
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <h3
-              className="text-fg-1 line-clamp-2"
-              style={{
-                fontFamily: 'Inter, sans-serif',
-                fontSize: '16px',
-                fontWeight: 600,
-                lineHeight: '20px',
-                letterSpacing: '-3%',
-                margin: 0,
-                marginBottom: subtitle ? '2px' : 0
-              }}
+        {/* Top block - exercise info */}
+        <div
+          className="bg-bg-1"
+          style={{ padding: '12px', paddingBottom: '8px' }}
+        >
+          <div className="flex items-center gap-3" style={{ gap: '8px' }}>
+            <div
+              className="flex-shrink-0 bg-bg-3 rounded-lg flex items-center justify-center overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+              style={{ width: '44px', height: '44px' }}
+              onClick={handleImageClick}
             >
-              {name}
-            </h3>
-            {subtitle ? (
-              <p
-                className="text-fg-3 line-clamp-1"
+              {image ? (
+                image
+              ) : (
+                <svg
+                  className="w-7 h-7 text-fg-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+              )}
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <h3
+                className="text-fg-1 line-clamp-2"
                 style={{
                   fontFamily: 'Inter, sans-serif',
-                  fontSize: '12px',
+                  fontSize: '14px',
+                  fontWeight: 500,
                   lineHeight: '16px',
-                  letterSpacing: '-2%',
-                  margin: 0
+                  letterSpacing: '-3%',
+                  margin: 0,
+                  marginBottom: subtitle ? '2px' : 0
                 }}
               >
-                {subtitle}
-              </p>
-            ) : null}
-          </div>
+                {name}
+              </h3>
+              {subtitle ? (
+                <p
+                  className="text-fg-3 line-clamp-1"
+                  style={{
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '11px',
+                    fontWeight: 500,
+                    lineHeight: '12px',
+                    letterSpacing: '-3%',
+                    margin: 0
+                  }}
+                >
+                  {subtitle}
+                </p>
+              ) : null}
+            </div>
 
-          <Button
-            size="sm"
-            priority="primary"
-            tone="brand"
-            leftIcon={<AddCircleIcon />}
-            iconOnly
-            onClick={openAddModal}
-            aria-label="Add set"
-          />
+            <Button
+              size="sm"
+              priority="tertiary"
+              tone="default"
+              leftIcon={<AddCircleIcon />}
+              iconOnly
+              onClick={openAddModal}
+              aria-label="Add set"
+            />
+          </div>
         </div>
 
+        {/* Bottom block - sets */}
         <div
-          style={{
-            marginTop: '12px'
-          }}
+          className="bg-bg-2"
+          style={{ padding: '12px' }}
         >
           {sets.length > 0 ? (
             <div className="flex flex-col gap-2">
@@ -174,25 +181,29 @@ export const TrackCard = React.forwardRef<HTMLDivElement, TrackCardProps>(
                   aria-label={`Изменить ${formatSetLabel(index + 1)}`}
                 >
                   <span
-                    className="text-fg-2"
+                    className="text-fg-3"
                     style={{
                       fontFamily: 'Inter, sans-serif',
                       fontSize: '12px',
-                      lineHeight: '16px',
-                      minWidth: '88px'
+                      fontWeight: 500,
+                      lineHeight: '12px',
+                      letterSpacing: '-3%',
+                      minWidth: '77px'
                     }}
                   >
                     {formatSetLabel(index + 1)}:
                   </span>
                   <div
-                    className="inline-flex items-center bg-bg-2 text-fg-1"
+                    className="inline-flex items-center text-fg-1"
                     style={{
                       fontFamily: 'Inter, sans-serif',
-                      fontSize: '13px',
-                      lineHeight: '16px',
-                      fontWeight: 600,
-                      padding: '6px 14px',
-                      borderRadius: '9999px'
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      lineHeight: '12px',
+                      letterSpacing: '-3%',
+                      padding: '4px 6px 4px 6px',
+                      borderRadius: '9999px',
+                      border: '1px solid var(--stroke-1)'
                     }}
                   >
                     {formatNumber(set.reps)} × {formatNumber(set.weight)} кг
@@ -216,13 +227,6 @@ export const TrackCard = React.forwardRef<HTMLDivElement, TrackCardProps>(
             </div>
           )}
         </div>
-
-        <div
-          className="border-b border-stroke-1"
-          style={{
-            marginTop: '16px'
-          }}
-        />
 
         <SetModal
           isOpen={isModalOpen}

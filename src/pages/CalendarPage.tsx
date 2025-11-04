@@ -1,4 +1,5 @@
-import { Header, Calendar, Button, Weekdays } from '../components';
+import { useState, useMemo } from 'react';
+import { Header, Calendar, Button } from '../components';
 import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import { useProfileSheet } from '../contexts/ProfileSheetContext';
@@ -8,12 +9,15 @@ interface CalendarPageProps {
   onDayClick?: (day: number, month: number, year: number) => void;
   onMonthChange?: (month: number, year: number) => void;
   workoutDays?: string[];
+  savedWorkouts?: Map<string, any[]>;
 }
 
-export function CalendarPage({ onDayClick, onMonthChange, workoutDays = [] }: CalendarPageProps) {
+export function CalendarPage({ onDayClick, onMonthChange, workoutDays = [], savedWorkouts = new Map() }: CalendarPageProps) {
   const { openProfileSheet } = useProfileSheet();
   const { openSettingsSheet } = useSettingsSheet();
   const today = new Date();
+  const [displayMonth, setDisplayMonth] = useState(today.getMonth());
+  const [displayYear, setDisplayYear] = useState(today.getFullYear());
 
   const handleDayClick = (day: number, month: number, year: number) => {
     if (onDayClick) {
@@ -22,18 +26,52 @@ export function CalendarPage({ onDayClick, onMonthChange, workoutDays = [] }: Ca
   };
 
   const handleMonthChange = (month: number, year: number) => {
-    if (onMonthChange) {
-      onMonthChange(month, year);
-    }
+    setDisplayMonth(month);
+    setDisplayYear(year);
+    onMonthChange?.(month, year);
   };
 
-  return (
-    <div className="w-full h-full bg-bg-3 flex flex-col">
-      {/* Outer page background - bg-bg-3 */}
+  // Calculate stats for the current month
+  const monthStats = useMemo(() => {
+    let totalWeight = 0;
+    let totalSets = 0;
 
-      {/* Content container - bg-bg-1 with rounded corners */}
-      <div className="flex-1 bg-bg-1 rounded-3xl shadow-card flex flex-col overflow-hidden">
-        {/* Header with logo and buttons */}
+    workoutDays.forEach(dateKey => {
+      const parts = dateKey.split('-');
+      if (parts.length === 3) {
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10);
+        const year = parseInt(parts[2], 10);
+
+        // Only count workouts from the current display month
+        if (month === displayMonth && year === displayYear) {
+          totalSets++;
+
+          // Extract weight from savedWorkouts
+          const exercises = savedWorkouts.get(dateKey);
+          if (exercises && Array.isArray(exercises)) {
+            exercises.forEach((exercise: any) => {
+              if (exercise.trackSets && Array.isArray(exercise.trackSets)) {
+                exercise.trackSets.forEach((set: any) => {
+                  totalWeight += set.weight || 0;
+                });
+              }
+            });
+          }
+        }
+      }
+    });
+
+    return {
+      totalWeight,
+      totalSets
+    };
+  }, [workoutDays, displayMonth, displayYear, savedWorkouts]);
+
+  return (
+    <div className="w-full h-full flex flex-col">
+      {/* Header with logo and buttons */}
+      <div className="bg-bg-1">
         <Header
           rightSlot={
             <>
@@ -58,20 +96,18 @@ export function CalendarPage({ onDayClick, onMonthChange, workoutDays = [] }: Ca
             </>
           }
         />
+      </div>
 
-        {/* Weekdays header - fixed */}
-        <Weekdays />
-
-        {/* Content */}
-        <div className="flex-1 overflow-hidden">
-          <Calendar
-            month={today.getMonth()}
-            year={today.getFullYear()}
-            workoutDays={workoutDays}
-            onDayClick={handleDayClick}
-            onMonthChange={handleMonthChange}
-          />
-        </div>
+      {/* Calendar content */}
+      <div className="flex-1 overflow-hidden bg-white">
+        <Calendar
+          month={displayMonth}
+          year={displayYear}
+          workoutDays={workoutDays}
+          monthStats={monthStats}
+          onDayClick={handleDayClick}
+          onMonthChange={handleMonthChange}
+        />
       </div>
     </div>
   );

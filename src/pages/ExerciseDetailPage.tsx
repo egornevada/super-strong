@@ -50,9 +50,8 @@ export function ExerciseDetailPage({
   }
 
   return (
-    <PageLayout title="Информация" onClose={onClose}>
+    <PageLayout title={exercise.name} onClose={onClose}>
       {/* Exercise name as heading */}
-      <h2 className="text-fg-1 text-2xl font-semibold mb-6">{exercise.name}</h2>
 
       {/* Image */}
       {exercise.image && (

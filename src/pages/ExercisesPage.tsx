@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react
 import { FilterPill, ExerciseCard, Button, HeaderWithBackButton, StickyTagsBar, ErrorPage } from '../components';
 import { fetchExercises, fetchCategories, type Exercise } from '../services/directusApi';
 import { useExerciseDetailSheet } from '../contexts/SheetContext';
+import ArrowCircleRightIcon from '@mui/icons-material/ArrowCircleRight';
 
 const STICKY_TOP = 64; // высота фиксированной шапки
 
@@ -192,7 +193,15 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
   }
 
   return (
-    <div className="w-full h-full bg-bg-3 flex flex-col relative">
+    <div className="w-full h-full bg-bg-1 flex flex-col relative">
+      {/* Header with back button */}
+      <div className="bg-bg-1">
+        <HeaderWithBackButton
+          backButtonLabel={dateLabel}
+          onBack={onBack}
+        />
+      </div>
+
       {/* Sticky tags bar - appears when scrolling */}
       {showStickyBar && (
         <div className="w-full bg-bg-1 border-b border-stroke-1 z-50">
@@ -204,20 +213,11 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
         </div>
       )}
 
-      {/* Content container - bg-bg-1 with rounded corners */}
-      <div className="flex-1 w-full bg-bg-1 rounded-3xl flex flex-col overflow-hidden shadow-card relative">
-
-        {/* Header with back button */}
-        <HeaderWithBackButton
-          backButtonLabel={dateLabel}
-          onBack={onBack}
-        />
-
-        {/* Scrollable content */}
-        <div
-          ref={contentRef}
-          className="flex-1 overflow-y-auto"
-        >
+      {/* Scrollable content */}
+      <div
+        ref={contentRef}
+        className="flex-1 overflow-y-auto"
+      >
           {/* Category filter cloud - scrolls with content */}
           <div className="flex flex-wrap gap-2 px-3 pt-2 pb-3 mb-8">
             {categories.map((category) => (
@@ -300,16 +300,17 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
           {/* Invisible spacer for button - 88px */}
           <div className="h-22" />
         </div>
-      </div>
 
       {/* Action button - separate block that pushes content up */}
       {selectedExercises.length > 0 && (
-        <div className="mt-2 px-4 py-4 bg-bg-1 rounded-3xl shadow-card">
+        <div className="bg-bg-1">
           <Button
             priority="primary"
             tone="brand"
             size="md"
-            className="w-full"
+            className="w-full rounded-none pt-4 pb-6"
+            style={{ borderRadius: '0', height: '64px' }}
+            rightIcon={<ArrowCircleRightIcon />}
             onClick={() => {
               const selectedList = exercises.filter((ex: Exercise) =>
                 selectedExercises.includes(ex.id)

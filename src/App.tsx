@@ -526,6 +526,7 @@ export default function App() {
                 onDayClick={handleDayClick}
                 onMonthChange={handleCalendarMonthChange}
                 workoutDays={workoutDays}
+                savedWorkouts={savedWorkouts}
               />
             </div>
 

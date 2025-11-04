@@ -1,16 +1,23 @@
 import * as React from 'react';
 import { Day } from './Day';
+import { Button } from '../main/Button';
+import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 
 export interface CalendarProps {
   month?: number;
   year?: number;
   workoutDays?: string[];
+  monthStats?: {
+    totalWeight: number;
+    totalSets: number;
+  };
   onDayClick?: (day: number, month: number, year: number) => void;
   onMonthChange?: (month: number, year: number) => void;
 }
 
 export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
-  ({ month, year, workoutDays = [], onDayClick, onMonthChange }, ref) => {
+  ({ month, year, workoutDays = [], monthStats, onDayClick, onMonthChange }, ref) => {
     const today = new Date();
     const [displayMonth, setDisplayMonth] = React.useState(month ?? today.getMonth());
     const [displayYear, setDisplayYear] = React.useState(year ?? today.getFullYear());
@@ -31,19 +38,17 @@ export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
       'Декабрь',
     ];
 
-    // Функция для генерации дней месяца
+    const weekdayShort = ['П', 'В', 'С', 'Ч', 'П', 'С', 'В'];
+
+    // Get days for the current month
     const getMonthDays = (monthIndex: number, yearIndex: number) => {
       const firstDay = new Date(yearIndex, monthIndex, 1).getDay();
       const daysInMonth = new Date(yearIndex, monthIndex + 1, 0).getDate();
 
-      // Преобразуем getDay() (0=Sunday) в позицию в сетке (0=Monday, 6=Sunday)
-      // getDay: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
-      // grid:    6=Sun, 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat
-      const gridColumnStart = firstDay === 0 ? 7 : firstDay; // 1-7, где 1=Monday, 7=Sunday
+      const gridColumnStart = firstDay === 0 ? 7 : firstDay;
 
       const days: Array<{ day: number; isCurrentMonth: boolean; gridColumn?: number }> = [];
 
-      // Первый день месяца должен быть в правильной колонке сетки
       for (let i = 1; i <= daysInMonth; i++) {
         days.push({
           day: i,
@@ -55,185 +60,130 @@ export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
       return { days };
     };
 
-    // Обработка прокрутки месяцев через Intersection Observer
-    const scrollContainerRef = React.useRef<HTMLDivElement>(null);
-    const monthRefs = React.useRef<{ [key: string]: HTMLDivElement | null }>({});
-    const hasInitialScrolled = React.useRef(false);
+    const { days: monthDays } = getMonthDays(displayMonth, displayYear);
 
-    // Note: Removed IntersectionObserver to prevent scroll position reset
-    // Months are loaded once at app init - no on-demand loading during scroll
-    // This preserves scroll position and provides smooth UX
-
-    // Прокрутить к текущему месяцу при инициализации
-    React.useEffect(() => {
-      if (!hasInitialScrolled.current && scrollContainerRef.current && monthRefs.current) {
-        const currentMonthKey = `${displayMonth}-${displayYear}`;
-        const currentMonthElement = monthRefs.current[currentMonthKey];
-
-        if (currentMonthElement) {
-          // Даём небольшую задержку чтобы DOM полностью загрузился
-          setTimeout(() => {
-            currentMonthElement.scrollIntoView({ behavior: 'auto', block: 'start' });
-            hasInitialScrolled.current = true;
-          }, 100);
-        }
+    const handlePrevMonth = () => {
+      let newMonth = displayMonth - 1;
+      let newYear = displayYear;
+      if (newMonth < 0) {
+        newMonth = 11;
+        newYear = displayYear - 1;
       }
-    }, [displayMonth, displayYear]);
+      setDisplayMonth(newMonth);
+      setDisplayYear(newYear);
+      onMonthChange?.(newMonth, newYear);
+    };
 
-    // Detect visible month during scroll and trigger onMonthChange (with debounce)
-    React.useEffect(() => {
-      const scrollContainer = scrollContainerRef.current;
-      if (!scrollContainer) return;
-
-      let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
-
-      const handleScroll = () => {
-        // Clear previous timeout
-        if (scrollTimeout) clearTimeout(scrollTimeout);
-
-        // Debounce month change detection
-        scrollTimeout = setTimeout(() => {
-          // Find which month is currently visible at the top of the scroll container
-          const containerRect = scrollContainer.getBoundingClientRect();
-          const containerTop = containerRect.top;
-
-          let visibleMonth: number | null = null;
-          let visibleYear: number | null = null;
-
-          for (const [monthKey, monthElement] of Object.entries(monthRefs.current)) {
-            if (!monthElement) continue;
-
-            const monthRect = monthElement.getBoundingClientRect();
-            // Check if month element is in view (top within container)
-            if (monthRect.top <= containerTop + 100 && monthRect.bottom > containerTop + 100) {
-              const [m, y] = monthKey.split('-').map(Number);
-              visibleMonth = m;
-              visibleYear = y;
-              break;
-            }
-          }
-
-          // Call onMonthChange if visible month changed
-          if (visibleMonth !== null && visibleYear !== null &&
-              (visibleMonth !== displayMonth || visibleYear !== displayYear)) {
-            setDisplayMonth(visibleMonth);
-            setDisplayYear(visibleYear);
-            onMonthChange?.(visibleMonth, visibleYear);
-          }
-        }, 300); // Wait 300ms after scroll stops
-      };
-
-      scrollContainer.addEventListener('scroll', handleScroll);
-      return () => {
-        scrollContainer.removeEventListener('scroll', handleScroll);
-        if (scrollTimeout) clearTimeout(scrollTimeout);
-      };
-    }, [displayMonth, displayYear, onMonthChange]);
-
-    // Генерируем месяцы для прокрутки (текущий год полностью + до и после)
-    const months = React.useMemo(() => {
-      const result = [];
-      const currentDate = new Date();
-      const startYear = currentDate.getFullYear() - 1;
-      const endYear = currentDate.getFullYear() + 1;
-
-      for (let y = startYear; y <= endYear; y++) {
-        for (let m = 0; m < 12; m++) {
-          result.push({ month: m, year: y });
-        }
+    const handleNextMonth = () => {
+      let newMonth = displayMonth + 1;
+      let newYear = displayYear;
+      if (newMonth > 11) {
+        newMonth = 0;
+        newYear = displayYear + 1;
       }
+      setDisplayMonth(newMonth);
+      setDisplayYear(newYear);
+      onMonthChange?.(newMonth, newYear);
+    };
 
-      return result;
-    }, []);
+    const isCurrentMonthDisplay = displayMonth === today.getMonth() && displayYear === today.getFullYear();
+    const currentDayForMonth = isCurrentMonthDisplay ? today.getDate() : null;
+
+    const numberFormatter = new Intl.NumberFormat('ru-RU', {
+      maximumFractionDigits: 2
+    });
 
     return (
-      <div ref={ref} className="w-full h-full flex flex-col">
-        {/* Scrollable calendar container */}
-        <div
-          ref={scrollContainerRef}
-          className="flex-1 overflow-y-auto w-full scrollbar-hide calendar-scroll-container"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        >
-          {months.map(({ month: m, year: y }) => {
-            const { days: monthDays } = getMonthDays(m, y);
-            const isCurrentMonthDisplay = m === today.getMonth() && y === today.getFullYear();
-            const currentDayForMonth = m === today.getMonth() && y === today.getFullYear()
-              ? today.getDate()
-              : null;
-            const monthKey = `${m}-${y}`;
+      <div ref={ref} className="w-full h-full flex flex-col relative">
+        {/* Scrollable calendar content */}
+        <div className="flex-1 overflow-y-auto">
+          {/* Header with navigation */}
+          <div>
+            {/* Month title and nav buttons */}
+            <div className="flex items-center justify-between px-3 pb-3">
+            <div className="flex gap-2">
+              <Button
+                priority="secondary"
+                tone="default"
+                size="sm"
+                leftIcon={<KeyboardArrowLeftIcon />}
+                aria-label="Previous month"
+                iconOnly
+                onClick={handlePrevMonth}
+              />
+              <Button
+                priority="secondary"
+                tone="default"
+                size="sm"
+                leftIcon={<KeyboardArrowRightIcon />}
+                aria-label="Next month"
+                iconOnly
+                onClick={handleNextMonth}
+              />
+            </div>
 
-            return (
-              <div
-                key={monthKey}
-                ref={(el) => {
-                  if (el) monthRefs.current[monthKey] = el;
-                }}
-                data-month={monthKey}
-                className="w-full"
-                style={{ paddingTop: '8px', paddingBottom: '8px' }}
-              >
-                {/* Month header - aligned to right */}
+            <h2 className="text-fg-1 text-right flex-1" style={{ fontSize: '20px', fontWeight: 500, lineHeight: '24px', letterSpacing: '-3%' }}>
+              {monthNames[displayMonth]} {displayYear}
+            </h2>
+          </div>
+
+          {/* Weekday headers */}
+          <div className="grid grid-cols-7 gap-0 pb-2">
+            {weekdayShort.map((day, idx) => (
+              <div key={idx} className="text-center text-fg-3 text-sm font-medium" style={{ fontSize: '10px', lineHeight: '12px' }}>
+                {day}
+              </div>
+            ))}
+          </div>
+
+          {/* Calendar grid */}
+          <div className="grid grid-cols-7 gap-0" style={{ boxShadow: 'inset 0 1px 0 0 var(--stroke-1)' }}>
+            {monthDays.map((dayObj, idx) => {
+              const isCurrentDay = dayObj.isCurrentMonth && dayObj.day === currentDayForMonth;
+              const dateKey = `${dayObj.day}-${displayMonth}-${displayYear}`;
+              const hasWorkout = dayObj.isCurrentMonth && workoutDays.includes(dateKey);
+
+              return (
                 <div
-                  className="flex justify-end"
+                  key={`${displayMonth}-${dayObj.day}-${idx}`}
                   style={{
-                    height: '28px',
-                    marginBottom: '8px',
-                    paddingLeft: '12px',
-                    paddingRight: '12px'
+                    ...(dayObj.gridColumn ? { gridColumn: dayObj.gridColumn } : {})
                   }}
                 >
-                  <h2
-                    className={isCurrentMonthDisplay ? 'text-bg-brand' : 'text-fg-1'}
-                    style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontSize: '20px',
-                      fontWeight: 500,
-                      lineHeight: '24px'
-                    }}
-                  >
-                    {(() => {
-                      const month = monthNames[m];
-                      if (month.length <= 4) {
-                        return month;
-                      }
-                      return month.substring(0, 3) + '.';
-                    })()}
-                  </h2>
+                  <Day
+                    day={dayObj.day}
+                    month={displayMonth}
+                    year={displayYear}
+                    isCurrentMonth={dayObj.isCurrentMonth}
+                    isCurrentDay={isCurrentDay}
+                    hasWorkout={hasWorkout}
+                    onClick={onDayClick}
+                  />
                 </div>
-
-                {/* Days grid */}
-                <div className="w-full grid grid-cols-7">
-                  {/* Days of month */}
-                  {monthDays.map((dayObj, idx) => {
-                    const isCurrentDay = dayObj.isCurrentMonth && dayObj.day === currentDayForMonth;
-                    const dateKey = `${dayObj.day}-${m}-${y}`;
-                    const hasWorkout = dayObj.isCurrentMonth && workoutDays.includes(dateKey);
-
-                    return (
-                      <div
-                        key={`${monthKey}-${dayObj.day}-${idx}`}
-                        style={dayObj.gridColumn ? { gridColumn: dayObj.gridColumn } : undefined}
-                      >
-                        <Day
-                          day={dayObj.day}
-                          month={m}
-                          year={y}
-                          isCurrentMonth={dayObj.isCurrentMonth}
-                          isCurrentDay={isCurrentDay}
-                          hasWorkout={hasWorkout}
-                          onClick={onDayClick}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Month spacing */}
-                <div className="w-full h-8" />
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
+        </div>
+
+        {/* Stats section - fixed at bottom */}
+        {monthStats && (
+          <div className="bg-bg-2 px-3 pt-4 pb-6 rounded-t-[16px] absolute bottom-0 left-0 right-0 z-10" style={{ height: 'auto' }}>
+            <h3 className="text-fg-1 mb-3" style={{ fontSize: '20px', fontWeight: 500, lineHeight: '24px', letterSpacing: '-3%' }}>Статистика за месяц</h3>
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-fg-3">Поднали за {monthNames[displayMonth].toLowerCase()}</span>
+                <span className="text-fg-1 font-medium">{numberFormatter.format(monthStats.totalWeight || 0)} кг</span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-fg-3">Выполнено подходов</span>
+                <span className="text-fg-1 font-medium">{monthStats.totalSets || 0}</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

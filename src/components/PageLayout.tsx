@@ -12,8 +12,9 @@ export interface PageLayoutProps {
 export function PageLayout({ title, onClose, children }: PageLayoutProps) {
   return (
     <div className="w-full h-full bg-bg-1 flex flex-col relative">
-      {/* Header with Logo and Close Button */}
+      {/* Header with Title and Close Button */}
       <Header
+        title={title}
         rightSlot={
           <Button
             priority="secondary"
@@ -26,11 +27,6 @@ export function PageLayout({ title, onClose, children }: PageLayoutProps) {
           />
         }
       />
-
-      {/* Title */}
-      <div className="px-4 pt-6 pb-4 border-b border-stroke-1">
-        <h3 className="text-fg-1 font-semibold text-lg">{title}</h3>
-      </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 py-6">
