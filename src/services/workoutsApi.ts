@@ -48,6 +48,31 @@ export interface WorkoutSetData {
  * Get workouts for a specific date range
  * Fetches workouts from Directus for the current user
  */
+export async function getAllWorkoutsForUser(): Promise<SavedWorkout[]> {
+  try {
+    const session = getUserSession();
+    if (!session) {
+      logger.warn('No user session found, returning empty workouts');
+      return [];
+    }
+
+    logger.debug('Fetching all workouts for user', { userId: session.userId });
+
+    // Fetch all workouts for the user without date filter
+    const response = await api.get<{ data: SavedWorkout[] }>(
+      `/items/workouts?filter[user_id][_eq]=${session.userId}&sort=-workout_date`
+    );
+
+    const workouts = Array.isArray(response) ? response : (response?.data || []);
+    logger.info('All workouts fetched successfully', { count: workouts.length });
+    return workouts;
+  } catch (error) {
+    logger.error('Failed to fetch all workouts', { error });
+    // Return empty array instead of throwing - allows offline mode
+    return [];
+  }
+}
+
 export async function getWorkoutsForDate(date: string): Promise<SavedWorkout[]> {
   try {
     const session = getUserSession();

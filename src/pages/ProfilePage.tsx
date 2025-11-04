@@ -63,6 +63,14 @@ export function ProfilePage({ onClose }: ProfilePageProps) {
     if (sheet.isOpen) {
       const session = getUserSession();
       setStats(getProfileStats(session?.created_at));
+
+      // Update stats every 500ms while sheet is open (since StorageEvent doesn't fire in same tab)
+      const interval = setInterval(() => {
+        const session = getUserSession();
+        setStats(getProfileStats(session?.created_at));
+      }, 500);
+
+      return () => clearInterval(interval);
     }
   }, [sheet.isOpen]);
 

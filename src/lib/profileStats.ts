@@ -207,3 +207,25 @@ export const clearProfileStats = () => {
   }
   localStorage.removeItem(STORAGE_KEY);
 };
+
+// Recalculate all profile stats from saved workouts (for fixing incorrect historical data)
+export const recalculateStatsFromSavedWorkouts = (
+  savedWorkouts: Map<string, Array<{ trackSets: Set[] }>>,
+  userCreatedAt?: string
+): ProfileStatsSummary => {
+  const store: ProfileStatsStore = { workouts: {} };
+
+  savedWorkouts.forEach((exercises, dateKey) => {
+    const { totalSets, totalWeight } = parseSets(exercises);
+    if (totalSets > 0) {
+      store.workouts[dateKey] = {
+        totalSets,
+        totalWeight,
+        updatedAt: new Date().toISOString(),
+      };
+    }
+  });
+
+  writeStore(store);
+  return computeSummary(store, userCreatedAt);
+};

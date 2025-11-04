@@ -4,13 +4,12 @@ import { SettingsPage } from '../pages/SettingsPage'
 import { useSettingsSheet } from '../contexts/SettingsSheetContext'
 
 export function SettingsSheetRenderer() {
-  const { sheet, closeSettingsSheet, onGoToStorybook } = useSettingsSheet()
+  const { sheet, closeSettingsSheet } = useSettingsSheet()
 
   return (
     <SheetOverlay isOpen={sheet.isOpen} onClose={closeSettingsSheet}>
       <SettingsPage
         onClose={closeSettingsSheet}
-        onGoToStorybook={onGoToStorybook}
       />
     </SheetOverlay>
   )

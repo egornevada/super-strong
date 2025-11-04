@@ -1,12 +1,10 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTelegram } from './hooks/useTelegram';
-import { useSettingsSheet } from './contexts/SettingsSheetContext';
 import { syncPendingRequests, isOnline } from './lib/api';
 import { logger } from './lib/logger';
-import { getWorkoutsForDate, getWorkoutSetsForDay, deleteWorkout } from './services/workoutsApi';
+import { getWorkoutsForDate, getWorkoutSetsForDay, deleteWorkout, getAllWorkoutsForUser } from './services/workoutsApi';
 import { fetchExercises, fetchExerciseById } from './services/directusApi';
 import { ExercisesPage } from './pages/ExercisesPage';
-import { StorybookPage } from './pages/StorybookPage';
 import { CalendarPage } from './pages/CalendarPage';
 import { MyExercisesPage } from './pages/MyExercisesPage';
 import { type Exercise } from './services/directusApi';
@@ -14,14 +12,14 @@ import { type Set, UsernameModal } from './components';
 import { ExerciseDetailSheetRenderer } from './components/SheetRenderer';
 import { ProfileSheetRenderer } from './components/ProfileSheetRenderer';
 import { SettingsSheetRenderer } from './components/SettingsSheetRenderer';
-import { recordProfileWorkout } from './lib/profileStats';
+import { recordProfileWorkout, recalculateStatsFromSavedWorkouts } from './lib/profileStats';
 import {
   getOrCreateUserByUsername,
   saveUserSession,
   getUserSession
 } from './services/authApi';
 
-type PageType = 'calendar' | 'exercises' | 'tracking' | 'storybook';
+type PageType = 'calendar' | 'exercises' | 'tracking';
 
 interface SelectedDate {
   day: number;
@@ -35,7 +33,6 @@ interface ExerciseWithTrackSets extends Exercise {
 
 export default function App() {
   useTelegram();
-  const { setOnGoToStorybook } = useSettingsSheet();
   const [currentPage, setCurrentPage] = useState<PageType>('calendar');
   const [showUsernameModal, setShowUsernameModal] = useState(false);
   const [usernameModalError, setUsernameModalError] = useState('');
@@ -90,6 +87,59 @@ export default function App() {
           logger.info('App offline - skipping sync and workout load');
           setIsLoadingWorkouts(false);
           return;
+        }
+
+        // Load all workouts from server and recalculate stats
+        try {
+          const allWorkoutsFromServer = await getAllWorkoutsForUser();
+          if (allWorkoutsFromServer.length > 0) {
+            // Convert server workouts to the format expected by recalculateStatsFromSavedWorkouts
+            const serverWorkoutsMap = new Map<string, Array<{ trackSets: Set[] }>>();
+
+            for (const workout of allWorkoutsFromServer) {
+              if (!workout.id) continue;
+
+              const dateStr = workout.workout_date;
+              const parts = dateStr.split('-');
+              if (parts.length !== 3) continue;
+
+              const day = parseInt(parts[2], 10);
+              const month = parseInt(parts[1], 10) - 1;
+              const year = parseInt(parts[0], 10);
+              const dateKey = `${day}-${month}-${year}`;
+
+              // Get sets for this workout
+              try {
+                const setsData = await getWorkoutSetsForDay(dateStr);
+                if (setsData && setsData.exercises.size > 0) {
+                  const exercises: Array<{ trackSets: Set[] }> = [];
+
+                  for (const [, workoutExercise] of setsData.exercises) {
+                    const exerciseSets = setsData.exerciseSets.get(workoutExercise.exercise_id) || [];
+                    const trackSets = exerciseSets.map(set => ({
+                      reps: set.reps,
+                      weight: set.weight
+                    }));
+
+                    exercises.push({ trackSets });
+                  }
+
+                  if (exercises.length > 0) {
+                    serverWorkoutsMap.set(dateKey, exercises);
+                  }
+                }
+              } catch (err) {
+                logger.warn('Failed to load sets for workout', { workoutId: workout.id, err });
+              }
+            }
+
+            // Recalculate profile stats from all server workouts
+            const session = getUserSession();
+            recalculateStatsFromSavedWorkouts(serverWorkoutsMap, session?.created_at);
+            logger.info('Profile stats recalculated from server data', { workoutCount: serverWorkoutsMap.size });
+          }
+        } catch (err) {
+          logger.warn('Failed to load all workouts from server', { err });
         }
 
         // Sync pending requests
@@ -324,6 +374,10 @@ export default function App() {
 
         savedExercises = exercisesFromServer;
         logger.info('Loaded workout from server', { dateKey, exerciseCount: exercisesFromServer.length });
+
+        // Update profileStats with data loaded from server
+        const session = getUserSession();
+        recordProfileWorkout(dateStr, exercisesFromServer, session?.created_at);
       }
     } catch (error) {
       logger.warn('Failed to load from server, will try localStorage', { dateKey, error });
@@ -513,25 +567,6 @@ export default function App() {
     }, 300);
   };
 
-  const handleGoToStorybook = useCallback(() => {
-    setIsClosing(true);
-    setTimeout(() => {
-      setCurrentPage('storybook');
-      setIsClosing(false);
-    }, 300);
-  }, []);
-
-  const handleBackFromStorybook = useCallback(() => {
-    setIsClosing(true);
-    setTimeout(() => {
-      setCurrentPage('calendar');
-      setIsClosing(false);
-    }, 300);
-  }, []);
-
-  useEffect(() => {
-    setOnGoToStorybook(() => handleGoToStorybook);
-  }, [setOnGoToStorybook]);
 
   // Log currentPage changes
   useEffect(() => {
@@ -585,14 +620,6 @@ export default function App() {
                 onSelectMoreExercises={handleSelectMoreExercisesFromMyPage}
                 onSave={handleSaveTraining}
               />
-            </div>
-
-            {/* Storybook */}
-            <div
-              style={{ display: currentPage === 'storybook' ? 'flex' : 'none' }}
-              className={`w-full h-full flex-1 ${currentPage === 'storybook' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
-            >
-              <StorybookPage onBack={handleBackFromStorybook} />
             </div>
 
             {/* Sheet overlays */}
