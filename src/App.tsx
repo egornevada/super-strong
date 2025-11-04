@@ -3,7 +3,7 @@ import { useTelegram } from './hooks/useTelegram';
 import { useSettingsSheet } from './contexts/SettingsSheetContext';
 import { syncPendingRequests, isOnline } from './lib/api';
 import { logger } from './lib/logger';
-import { getWorkoutsForDate } from './services/workoutsApi';
+import { getWorkoutsForDate, getWorkoutSetsForDay, deleteWorkout } from './services/workoutsApi';
 import { fetchExercises, fetchExerciseById } from './services/directusApi';
 import { ExercisesPage } from './pages/ExercisesPage';
 import { StorybookPage } from './pages/StorybookPage';
@@ -263,8 +263,9 @@ export default function App() {
   const [workoutDays, setWorkoutDays] = useState<string[]>([]);
   const [savedWorkouts, setSavedWorkouts] = useState<Map<string, ExerciseWithTrackSets[]>>(new Map());
   const [isClosing, setIsClosing] = useState(false);
+  const [currentWorkoutId, setCurrentWorkoutId] = useState<number | null>(null);
 
-  const handleDayClick = (day: number, month: number, year: number) => {
+  const handleDayClick = async (day: number, month: number, year: number) => {
     // Сохраняем позицию скролла календаря перед переходом
     const calendarContainer = document.querySelector('.calendar-scroll-container');
     if (calendarContainer) {
@@ -272,9 +273,63 @@ export default function App() {
     }
     setSelectedDate({ day, month, year });
 
-    // Проверяем, есть ли сохраненная тренировка для этого дня
     const dateKey = `${day}-${month}-${year}`;
-    const savedExercises = savedWorkouts.get(dateKey);
+    let savedExercises: ExerciseWithTrackSets[] | null = null;
+    let workoutId: number | null = null;
+
+    // ALWAYS try to load from server first to ensure sync across browsers
+    logger.info('Loading workout for day from server', { dateKey });
+    try {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const workoutSetsData = await getWorkoutSetsForDay(dateStr);
+
+      if (workoutSetsData && workoutSetsData.exercises.size > 0) {
+        workoutId = workoutSetsData.workoutId;
+        // Преобразуем данные с сервера в формат нашего приложения
+        const exercisesFromServer: ExerciseWithTrackSets[] = [];
+
+        for (const [directusExerciseId, workoutExercise] of workoutSetsData.exercises) {
+          const exerciseSets = workoutSetsData.exerciseSets.get(directusExerciseId) || [];
+
+          // Преобразуем workout_sets в trackSets
+          const trackSets: Set[] = exerciseSets.map(set => ({
+            reps: set.reps,
+            weight: set.weight
+          }));
+
+          // Получаем информацию об упражнении из кэша
+          let exerciseInfo = allExercises.find(ex => String(ex.id) === directusExerciseId);
+
+          if (!exerciseInfo) {
+            // Если нет в кэше, пытаемся загрузить
+            try {
+              exerciseInfo = await fetchExerciseById(directusExerciseId);
+            } catch (err) {
+              logger.warn('Failed to load exercise info', { exerciseId: directusExerciseId, err });
+              // Создаем минимальный объект упражнения
+              exerciseInfo = {
+                id: directusExerciseId,
+                name: workoutExercise.exercise_name || 'Unknown Exercise',
+                category: 'Unknown',
+                description: ''
+              };
+            }
+          }
+
+          exercisesFromServer.push({
+            ...exerciseInfo,
+            trackSets
+          });
+        }
+
+        savedExercises = exercisesFromServer;
+        logger.info('Loaded workout from server', { dateKey, exerciseCount: exercisesFromServer.length });
+      }
+    } catch (error) {
+      logger.warn('Failed to load from server, will try localStorage', { dateKey, error });
+      // Fall back to localStorage if server fails
+      savedExercises = savedWorkouts.get(dateKey) || null;
+    }
 
     if (savedExercises && savedExercises.length > 0) {
       // Если есть сохраненная тренировка - переходим на MyExercisesPage
@@ -284,12 +339,14 @@ export default function App() {
         // Ensure ID is string for consistent storage
         newTrackedSets.set(String(ex.id), ex.trackSets);
       });
+      setCurrentWorkoutId(workoutId);
       setExercisesWithTrackedSets(newTrackedSets);
       setSelectedExercises(savedExercises.map(({ ...ex }) => ex as Exercise));
       setCurrentPage('tracking');
     } else {
       // Иначе переходим на ExercisesPage для выбора упражнений
       logger.info('No saved workout for day, showing exercise selection', { dateKey });
+      setCurrentWorkoutId(null);
       setSelectedExercises([]);
       setExercisesWithTrackedSets(new Map());
       setCurrentPage('exercises');

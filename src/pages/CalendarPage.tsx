@@ -6,7 +6,7 @@ import { useProfileSheet } from '../contexts/ProfileSheetContext';
 import { useSettingsSheet } from '../contexts/SettingsSheetContext';
 
 interface CalendarPageProps {
-  onDayClick?: (day: number, month: number, year: number) => void;
+  onDayClick?: (day: number, month: number, year: number) => void | Promise<void>;
   onMonthChange?: (month: number, year: number) => void;
   workoutDays?: string[];
   savedWorkouts?: Map<string, any[]>;
@@ -19,9 +19,9 @@ export function CalendarPage({ onDayClick, onMonthChange, workoutDays = [], save
   const [displayMonth, setDisplayMonth] = useState(today.getMonth());
   const [displayYear, setDisplayYear] = useState(today.getFullYear());
 
-  const handleDayClick = (day: number, month: number, year: number) => {
+  const handleDayClick = async (day: number, month: number, year: number) => {
     if (onDayClick) {
-      onDayClick(day, month, year);
+      await onDayClick(day, month, year);
     }
   };
 
