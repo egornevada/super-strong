@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { HeaderWithBackButton, Button, TrackCard, type Set } from '../components';
 import { type Exercise } from '../services/directusApi';
 import { useExerciseDetailSheet } from '../contexts/SheetContext';
-import { saveWorkout, convertExerciseToApiFormat } from '../services/workoutsApi';
+import { saveWorkout, convertExerciseToApiFormat, deleteWorkout } from '../services/workoutsApi';
 import { logger } from '../lib/logger';
 import { showTelegramAlert } from '../lib/telegram';
 import ArrowCircleLeftIcon from '@mui/icons-material/ArrowCircleLeft';
@@ -19,6 +19,8 @@ interface MyExercisesPageProps {
   onBack?: () => void;
   onSelectMoreExercises?: (exercises: ExerciseWithTrackSets[]) => void;
   onSave?: (exercises: ExerciseWithTrackSets[], date: SelectedDate) => void;
+  currentWorkoutId?: number | null;
+  onWorkoutDeleted?: () => void;
 }
 
 interface ExerciseWithTrackSets extends Exercise {
@@ -30,7 +32,9 @@ export function MyExercisesPage({
   selectedDate,
   onBack,
   onSelectMoreExercises,
-  onSave
+  onSave,
+  currentWorkoutId,
+  onWorkoutDeleted
 }: MyExercisesPageProps) {
   logger.info('[TRACKING] MyExercisesPage mounted/updated', {
     selectedExercisesCount: selectedExercises?.length,
@@ -49,8 +53,37 @@ export function MyExercisesPage({
     setExercisesWithSets(selectedExercises);
   }, [selectedExercises]);
 
+  const handleDeleteExercise = async (exerciseId: string) => {
+    // Remove the exercise from the current workout
+    const updated = exercisesWithSets.filter(ex => ex.id !== exerciseId);
+    setExercisesWithSets(updated);
+
+    logger.info('Exercise deleted from workout', { exerciseId, remainingCount: updated.length });
+
+    // If no exercises left, delete the entire workout
+    if (updated.length === 0) {
+      try {
+        logger.info('No exercises remaining, deleting workout', { workoutId: currentWorkoutId });
+        if (currentWorkoutId) {
+          await deleteWorkout(String(currentWorkoutId));
+          onWorkoutDeleted?.();
+        }
+        // Navigate back to exercise selection
+        onSelectMoreExercises?.(updated);
+      } catch (error) {
+        logger.error('Failed to delete workout', error);
+        showTelegramAlert('Ошибка удаления тренировки');
+      }
+    } else {
+      // Save the updated workout with remaining exercises
+      await handleAutoSaveWorkout(updated);
+    }
+  };
+
   const handleExerciseImageClick = (exerciseId: string) => {
-    openExerciseDetail(exerciseId);
+    // Pass delete callback when opening exercise detail
+    const deleteCallback = () => handleDeleteExercise(exerciseId);
+    openExerciseDetail(exerciseId, deleteCallback);
   };
 
   const monthNames = [

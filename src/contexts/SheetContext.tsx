@@ -3,11 +3,12 @@ import React, { createContext, useContext, useState, ReactNode } from 'react'
 export interface ExerciseDetailSheetState {
   isOpen: boolean
   exerciseId?: string
+  onDeleteExercise?: () => void
 }
 
 interface ExerciseDetailSheetContextType {
   sheet: ExerciseDetailSheetState
-  openExerciseDetail: (exerciseId: string) => void
+  openExerciseDetail: (exerciseId: string, onDeleteExercise?: () => void) => void
   closeSheet: () => void
 }
 
@@ -18,10 +19,11 @@ export function ExerciseDetailSheetProvider({ children }: { children: ReactNode 
     isOpen: false,
   })
 
-  const openExerciseDetail = (exerciseId: string) => {
+  const openExerciseDetail = (exerciseId: string, onDeleteExercise?: () => void) => {
     setSheet({
       isOpen: true,
       exerciseId,
+      onDeleteExercise,
     })
   }
 
@@ -29,6 +31,7 @@ export function ExerciseDetailSheetProvider({ children }: { children: ReactNode 
     setSheet({
       isOpen: false,
       exerciseId: undefined,
+      onDeleteExercise: undefined,
     })
   }
 

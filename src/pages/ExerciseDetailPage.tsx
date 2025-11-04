@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { PageLayout } from '../components/PageLayout'
+import { AlertDialog, Button } from '../components'
 import { fetchExerciseById, type Exercise } from '../services/directusApi'
+import { useExerciseDetailSheet } from '../contexts/SheetContext'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 
 interface ExerciseDetailPageProps {
   exerciseId: string
@@ -11,9 +14,11 @@ export function ExerciseDetailPage({
   exerciseId,
   onClose,
 }: ExerciseDetailPageProps) {
+  const { sheet, closeSheet } = useExerciseDetailSheet()
   const [exercise, setExercise] = useState<Exercise | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showDeleteAlert, setShowDeleteAlert] = useState(false)
 
   useEffect(() => {
     const loadExercise = async () => {
@@ -47,6 +52,20 @@ export function ExerciseDetailPage({
         <p className="text-fg-2 text-center">{error || 'Упражнение не найдено'}</p>
       </PageLayout>
     )
+  }
+
+  const handleDeleteClick = () => {
+    setShowDeleteAlert(true)
+  }
+
+  const handleConfirmDelete = () => {
+    setShowDeleteAlert(false)
+    // Вызываем callback для удаления из MyExercisesPage
+    if (sheet.onDeleteExercise) {
+      sheet.onDeleteExercise()
+    }
+    closeSheet()
+    onClose?.()
   }
 
   return (
@@ -98,7 +117,35 @@ export function ExerciseDetailPage({
             </p>
           </div>
         )}
+
+        {/* Delete button - if we have a delete callback */}
+        {sheet.onDeleteExercise && (
+          <div className="mt-6 pt-6 border-t border-stroke-1">
+            <Button
+              priority="tertiary"
+              tone="error"
+              size="md"
+              className="w-full"
+              leftIcon={<DeleteOutlineIcon />}
+              onClick={handleDeleteClick}
+            >
+              Удалить упражнение
+            </Button>
+          </div>
+        )}
       </div>
+
+      {/* Delete confirmation alert */}
+      <AlertDialog
+        isOpen={showDeleteAlert}
+        title="Удалить упражнение?"
+        message={`Упражнение "${exercise.name}" будет удалено из текущей тренировки.`}
+        confirmText="Удалить"
+        cancelText="Отменить"
+        isDangerous={true}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setShowDeleteAlert(false)}
+      />
     </PageLayout>
   )
 }

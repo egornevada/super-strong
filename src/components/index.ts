@@ -15,8 +15,8 @@ export { ExerciseCard, TrackCard } from './widgets';
 export type { ExerciseCardProps, TrackCardProps, Set } from './widgets';
 
 // Modals
-export { SetModal, UsernameModal } from './modals';
-export type { SetModalProps, UsernameModalProps } from './modals';
+export { SetModal, UsernameModal, AlertDialog } from './modals';
+export type { SetModalProps, UsernameModalProps, AlertDialogProps } from './modals';
 
 // Error page
 export { ErrorPage } from './ErrorPage';

@@ -114,8 +114,8 @@ export default function App() {
                 if (setsData && setsData.exercises.size > 0) {
                   const exercises: Array<{ trackSets: Set[] }> = [];
 
-                  for (const [, workoutExercise] of setsData.exercises) {
-                    const exerciseSets = setsData.exerciseSets.get(workoutExercise.exercise_id) || [];
+                  for (const [directusExerciseId, workoutExercise] of setsData.exercises) {
+                    const exerciseSets = setsData.exerciseSets.get(directusExerciseId) || [];
                     const trackSets = exerciseSets.map(set => ({
                       reps: set.reps,
                       weight: set.weight
@@ -525,6 +525,38 @@ export default function App() {
     // Don't navigate away - user stays on tracking page to continue adding exercises
   };
 
+  const handleWorkoutDeleted = () => {
+    // Удаляем дату из workoutDays когда тренировка полностью удалена
+    if (selectedDate) {
+      const dateKey = `${selectedDate.day}-${selectedDate.month}-${selectedDate.year}`;
+      setWorkoutDays((prev) => prev.filter((day) => day !== dateKey));
+      logger.info('Workout deleted, removing from workoutDays', { dateKey });
+
+      // Удаляем из savedWorkouts
+      const newSavedWorkouts = new Map(savedWorkouts);
+      newSavedWorkouts.delete(dateKey);
+      setSavedWorkouts(newSavedWorkouts);
+
+      // Сохраняем в localStorage
+      try {
+        const savingData: Record<string, ExerciseWithTrackSets[]> = {};
+        newSavedWorkouts.forEach((value, key) => {
+          savingData[key] = value;
+        });
+        localStorage.setItem('savedWorkouts', JSON.stringify(savingData));
+      } catch (error) {
+        logger.warn('Failed to update localStorage after workout deletion', error);
+      }
+    }
+
+    // Переходим на ExercisesPage
+    setIsClosing(true);
+    setTimeout(() => {
+      setCurrentPage('exercises');
+      setIsClosing(false);
+    }, 300);
+  };
+
   const handleBackFromMyExercises = () => {
     logger.warn('[PAGE] handleBackFromMyExercises called');
     const stack = new Error().stack;
@@ -619,6 +651,8 @@ export default function App() {
                 onBack={handleBackFromMyExercises}
                 onSelectMoreExercises={handleSelectMoreExercisesFromMyPage}
                 onSave={handleSaveTraining}
+                currentWorkoutId={currentWorkoutId}
+                onWorkoutDeleted={handleWorkoutDeleted}
               />
             </div>
 
