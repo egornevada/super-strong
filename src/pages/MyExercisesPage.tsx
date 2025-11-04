@@ -132,21 +132,18 @@ export function MyExercisesPage({
       setIsSaving(true);
       const dateStr = `${selectedDate.year}-${String(selectedDate.month + 1).padStart(2, '0')}-${String(selectedDate.day).padStart(2, '0')}`;
 
-      // Convert exercises to API format
+      // Convert exercises to API format (only those with sets)
       const apiExercises = exercises
         .filter(ex => ex.trackSets.length > 0)
         .map(ex => convertExerciseToApiFormat(ex.id, ex.trackSets));
 
-      if (apiExercises.length === 0) {
-        logger.warn('[TRACKING] No exercises with sets to save');
-        logger.debug('No exercises with sets to save (auto-save skipped)');
-        return;
-      }
+      // Always save the workout day, even if no sets were added
+      // This marks the day as having a workout attempt
 
       logger.warn('[TRACKING] Saving workout to server...', { dateStr, exerciseCount: apiExercises.length });
       logger.info('Saving workout...', { dateStr, exerciseCount: apiExercises.length });
 
-      // Save to server
+      // Save to server (save even if no exercises have sets)
       const workoutId = await saveWorkout(dateStr, apiExercises);
 
       // Update parent state to reflect new workout (adds dot to calendar)

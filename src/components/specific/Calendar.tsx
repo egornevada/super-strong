@@ -126,15 +126,10 @@ export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
               {monthNames[displayMonth]} {displayYear}
             </h2>
           </div>
-
-          {/* Weekday headers */}
-          <div className="grid grid-cols-7 gap-0 pb-2">
-            {weekdayShort.map((day, idx) => (
-              <div key={idx} className="text-center text-fg-3 text-sm font-medium" style={{ fontSize: '10px', lineHeight: '12px' }}>
-                {day}
-              </div>
-            ))}
           </div>
+
+          
+        
 
           {/* Calendar grid */}
           <div className="grid grid-cols-7 gap-0" style={{ boxShadow: 'inset 0 1px 0 0 var(--stroke-1)' }}>
@@ -163,7 +158,6 @@ export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
               );
             })}
           </div>
-        </div>
         </div>
 
         {/* Stats section - fixed at bottom */}

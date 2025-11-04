@@ -41,7 +41,9 @@ export default function App() {
   const [usernameModalError, setUsernameModalError] = useState('');
   const [usernameModalLoading, setUsernameModalLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isLoadingWorkouts, setIsLoadingWorkouts] = useState(false);
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
+  const initializationAttempt = useRef(0);
 
   // Cache for exercises loaded by ID to avoid redundant API calls
   const exerciseCacheRef = useRef<Map<string, Exercise>>(new Map());
@@ -52,68 +54,55 @@ export default function App() {
       return;
     }
 
-    const handleLoadWorkouts = async () => {
+    const initializeApp = async () => {
       try {
-        // Load exercises cache for displaying saved workouts
+        initializationAttempt.current++;
+        if (initializationAttempt.current > 1) {
+          logger.warn('Multiple initialization attempts, skipping');
+          return;
+        }
+
+        setIsLoadingWorkouts(true);
+        logger.info('Starting app initialization...');
+
+        // Load exercises cache
         const exercisesData = await fetchExercises();
         setAllExercises(exercisesData);
-        logger.info('Exercises cache loaded', { count: exercisesData.length });
+        logger.info('Exercises loaded', { count: exercisesData.length });
 
-        if (isOnline()) {
-          logger.info('User initialized, syncing pending requests...');
-          const syncResult = await syncPendingRequests();
-          const { synced, failed } = syncResult;
-          if (synced > 0) {
-            logger.info(`Sync complete: ${synced} synced, ${failed} failed`);
-          } else if (failed > 0) {
-            logger.info(`Sync had failures: 0 synced, ${failed} failed`);
-          } else {
-            logger.info('Sync skipped (no auth) or nothing to sync');
-          }
-
-          // Load workouts for current month and adjacent months
-          logger.info('Loading workouts for current and adjacent months...');
-          const today = new Date();
-          let currentYear = today.getFullYear();
-          let currentMonth = today.getMonth();
-
-          // Load previous month
-          let prevMonth = currentMonth - 1;
-          let prevYear = currentYear;
-          if (prevMonth < 0) {
-            prevMonth = 11;
-            prevYear = currentYear - 1;
-          }
-          await loadWorkoutsForCurrentMonth(prevMonth, prevYear);
-
-          // Load current month
-          await loadWorkoutsForCurrentMonth(currentMonth, currentYear);
-
-          // Load next month
-          let nextMonth = currentMonth + 1;
-          let nextYear = currentYear;
-          if (nextMonth > 11) {
-            nextMonth = 0;
-            nextYear = currentYear + 1;
-          }
-          await loadWorkoutsForCurrentMonth(nextMonth, nextYear);
-
-          logger.info('Workouts loading complete');
-        } else {
-          logger.info('App offline, skipping sync and workout load');
+        if (!isOnline()) {
+          logger.info('App offline - skipping sync and workout load');
+          setIsLoadingWorkouts(false);
+          return;
         }
+
+        // Sync pending requests
+        logger.info('Syncing pending requests...');
+        try {
+          await syncPendingRequests();
+          logger.info('Sync complete');
+        } catch (syncError) {
+          logger.warn('Sync failed, continuing anyway', syncError);
+        }
+
+        // Load current month workouts
+        const today = new Date();
+        try {
+          await loadWorkoutsForCurrentMonth(today.getMonth(), today.getFullYear());
+          logger.info('Current month loaded');
+        } catch (loadError) {
+          logger.warn('Failed to load current month', loadError);
+        }
+
+        setIsLoadingWorkouts(false);
+        logger.info('App initialization complete');
       } catch (error) {
-        logger.error('Error loading workouts:', error);
+        logger.error('Error initializing app:', error);
+        setIsLoadingWorkouts(false);
       }
     };
 
-    // Handle app coming back online
-    window.addEventListener('online', handleLoadWorkouts);
-
-    // Load workouts when user is first initialized
-    handleLoadWorkouts();
-
-    return () => window.removeEventListener('online', handleLoadWorkouts);
+    initializeApp();
   }, [isInitialized]);
 
   // Initialize user - check for existing session or Telegram
@@ -246,31 +235,11 @@ export default function App() {
     }
   }, []);
 
-  // Handle month changes in calendar - load adjacent months on demand
-  const handleCalendarMonthChange = useCallback(async (month: number, year: number) => {
+  // Handle month changes in calendar
+  const handleCalendarMonthChange = async (month: number, year: number) => {
     logger.info('Calendar month changed', { month, year });
-
-    // Load previous month
-    let prevMonth = month - 1;
-    let prevYear = year;
-    if (prevMonth < 0) {
-      prevMonth = 11;
-      prevYear = year - 1;
-    }
-    await loadWorkoutsForCurrentMonth(prevMonth, prevYear);
-
-    // Load current month
     await loadWorkoutsForCurrentMonth(month, year);
-
-    // Load next month
-    let nextMonth = month + 1;
-    let nextYear = year;
-    if (nextMonth > 11) {
-      nextMonth = 0;
-      nextYear = year + 1;
-    }
-    await loadWorkoutsForCurrentMonth(nextMonth, nextYear);
-  }, [loadWorkoutsForCurrentMonth]);
+  };
   const [selectedDate, setSelectedDate] = useState<SelectedDate | null>(null);
   const [calendarScrollPosition, setCalendarScrollPosition] = useState(0);
   const [selectedExercises, setSelectedExercises] = useState<Exercise[]>([]);
@@ -483,21 +452,21 @@ export default function App() {
     }, 300);
   };
 
-  const handleGoToStorybook = () => {
+  const handleGoToStorybook = useCallback(() => {
     setIsClosing(true);
     setTimeout(() => {
       setCurrentPage('storybook');
       setIsClosing(false);
     }, 300);
-  };
+  }, []);
 
-  const handleBackFromStorybook = () => {
+  const handleBackFromStorybook = useCallback(() => {
     setIsClosing(true);
     setTimeout(() => {
       setCurrentPage('calendar');
       setIsClosing(false);
     }, 300);
-  };
+  }, []);
 
   useEffect(() => {
     setOnGoToStorybook(() => handleGoToStorybook);
@@ -515,7 +484,7 @@ export default function App() {
           - Below 640px: full viewport height with no gaps
           - Above 640px: 24px margins, max height, centered */}
       <div className="relative w-full max-w-[640px] max-sm:h-full sm:h-[calc(100vh-48px)] sm:my-6 bg-bg-3 flex flex-col max-sm:p-0 sm:p-3 sm:rounded-[24px]" style={{ maxHeight: '100dvh' }}>
-        {isInitialized ? (
+        {isInitialized && !isLoadingWorkouts ? (
           <>
             {/* Calendar - always in DOM, just hidden */}
             <div

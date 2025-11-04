@@ -301,8 +301,8 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
           <div className="h-22" />
         </div>
 
-      {/* Action button - separate block that pushes content up */}
-      {selectedExercises.length > 0 && (
+        {/* Action button - separate block that pushes content up */}
+        {selectedExercises.length > 0 && (
         <div className="bg-bg-1">
           <Button
             priority="primary"
