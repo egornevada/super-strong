@@ -185,11 +185,16 @@ export default function App() {
 
         setLoadingProgress(70);
 
-        // Sync pending requests
+        // Sync pending requests with timeout (don't block if offline or slow)
         try {
-          await syncPendingRequests();
+          await Promise.race([
+            syncPendingRequests(),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Sync timeout')), 15000)
+            )
+          ]);
         } catch (syncError) {
-          // Continue anyway
+          // Continue anyway - pending requests will sync later
         }
 
         setLoadingProgress(85);
