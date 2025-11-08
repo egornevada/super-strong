@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { PageLayout } from '../components/PageLayout';
 import { useTelegram } from '../hooks/useTelegram';
+import { useUser } from '../contexts/UserContext';
 import { useProfileSheet } from '../contexts/ProfileSheetContext';
 import { getUserSession } from '../services/authApi';
 import {
@@ -45,44 +46,47 @@ const formatSetsLabel = (sets: number) => {
 
 export function ProfilePage({ onClose }: ProfilePageProps) {
   const { user: telegramUser } = useTelegram();
+  const { currentUser } = useUser();
   const { sheet } = useProfileSheet();
   const [stats, setStats] = useState<ProfileStatsSummary>(() => {
-    const session = getUserSession();
-    return getProfileStats(session?.created_at);
+    return getProfileStats(currentUser?.created_at);
   });
+
+  // Update stats when currentUser changes (e.g., after initial load)
+  useEffect(() => {
+    if (currentUser?.created_at) {
+      setStats(getProfileStats(currentUser.created_at));
+    }
+  }, [currentUser?.created_at]);
 
   useEffect(() => {
     if (sheet.isOpen) {
-      const session = getUserSession();
-      setStats(getProfileStats(session?.created_at));
+      setStats(getProfileStats(currentUser?.created_at));
 
       // Update stats every 500ms while sheet is open (since StorageEvent doesn't fire in same tab)
       const interval = setInterval(() => {
-        const session = getUserSession();
-        setStats(getProfileStats(session?.created_at));
+        setStats(getProfileStats(currentUser?.created_at));
       }, 500);
 
       return () => clearInterval(interval);
     }
-  }, [sheet.isOpen]);
+  }, [sheet.isOpen, currentUser?.created_at]);
 
   useEffect(() => {
     const handleStorage = (event: StorageEvent) => {
       if (event.key === PROFILE_STATS_STORAGE_KEY) {
-        const session = getUserSession();
-        setStats(getProfileStats(session?.created_at));
+        setStats(getProfileStats(currentUser?.created_at));
       }
     };
 
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
-  }, []);
+  }, [currentUser?.created_at]);
 
   const accountLabel = useMemo(() => {
-    // First check for session username (from modal login)
-    const session = getUserSession();
-    if (session?.username) {
-      return `@${session.username}`;
+    // First use current user from context
+    if (currentUser?.username) {
+      return `@${currentUser.username}`;
     }
 
     // Then check for Telegram user
@@ -94,7 +98,7 @@ export function ProfilePage({ onClose }: ProfilePageProps) {
       return `${telegramUser.first_name}${lastName}`;
     }
     return 'Гость, браузер';
-  }, [telegramUser]);
+  }, [currentUser?.username, telegramUser]);
 
   const daysUsingAppLabel = formatDaysLabel(stats.daysSinceUserCreation);
   const workoutDaysLabel = formatDaysLabel(stats.workoutsCompleted);

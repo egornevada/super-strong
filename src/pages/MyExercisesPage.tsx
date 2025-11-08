@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { HeaderWithBackButton, Button, TrackCard, type Set } from '../components';
 import { type Exercise } from '../services/directusApi';
 import { useExerciseDetailSheet } from '../contexts/SheetContext';
+import { useUser } from '../contexts/UserContext';
 import { saveWorkout, convertExerciseToApiFormat, deleteWorkout } from '../services/workoutsApi';
 import { logger } from '../lib/logger';
 import { showTelegramAlert } from '../lib/telegram';
@@ -19,7 +20,7 @@ interface MyExercisesPageProps {
   onBack?: () => void;
   onSelectMoreExercises?: (exercises: ExerciseWithTrackSets[]) => void;
   onSave?: (exercises: ExerciseWithTrackSets[], date: SelectedDate) => void;
-  currentWorkoutId?: number | null;
+  currentWorkoutId?: string | null;
   onWorkoutDeleted?: () => void;
 }
 
@@ -36,6 +37,8 @@ export function MyExercisesPage({
   currentWorkoutId,
   onWorkoutDeleted
 }: MyExercisesPageProps) {
+  const { currentUser } = useUser();
+
   logger.info('[TRACKING] MyExercisesPage mounted/updated', {
     selectedExercisesCount: selectedExercises?.length,
     selectedDate,
@@ -65,7 +68,7 @@ export function MyExercisesPage({
       try {
         logger.info('No exercises remaining, deleting workout', { workoutId: currentWorkoutId });
         if (currentWorkoutId) {
-          await deleteWorkout(String(currentWorkoutId));
+          await deleteWorkout(currentWorkoutId);
           onWorkoutDeleted?.();
         }
         // Navigate back to exercise selection
@@ -200,7 +203,10 @@ export function MyExercisesPage({
       logger.info('Saving workout...', { dateStr, exerciseCount: apiExercises.length });
 
       // Save to server (save even if no exercises have sets)
-      const workoutId = await saveWorkout(dateStr, apiExercises);
+      if (!currentUser?.id) {
+        throw new Error('No user logged in');
+      }
+      const workoutId = await saveWorkout(dateStr, apiExercises, currentUser.id);
 
       // Update parent state to reflect new workout (adds dot to calendar)
       // This does NOT navigate away - it only updates the workoutDays state

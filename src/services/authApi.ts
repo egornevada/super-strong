@@ -1,15 +1,15 @@
-import { api } from '../lib/api';
 import { logger } from '../lib/logger';
+import {
+  User,
+  getUserByUsername as supabaseGetUserByUsername,
+  getUserByTelegramId as supabaseGetUserByTelegramId,
+  createUser as supabaseCreateUser,
+  updateUser as supabaseUpdateUser,
+  getOrCreateUserByUsername as supabaseGetOrCreateUserByUsername
+} from './supabaseApi';
 
-export interface UserData {
-  id: number;
-  telegram_id?: number;
-  username: string;
-  first_name?: string;
-  last_name?: string;
-  created_at: string;
-  updated_at: string;
-}
+// Re-export Supabase User interface as UserData for compatibility
+export type UserData = User;
 
 export interface CreateUserPayload {
   telegram_id?: number;
@@ -23,17 +23,7 @@ export interface CreateUserPayload {
  */
 export async function getUserByUsername(username: string): Promise<UserData | null> {
   try {
-    const response = await api.get<{ data: UserData[] }>(
-      `/items/users?filter[username][_eq]=${encodeURIComponent(username)}`
-    );
-
-    const users = Array.isArray(response) ? response : (response?.data || []);
-
-    if (users && users.length > 0) {
-      return users[0];
-    }
-
-    return null;
+    return await supabaseGetUserByUsername(username);
   } catch (error) {
     logger.error('Error fetching user by username', { username, error });
     throw error;
@@ -45,17 +35,7 @@ export async function getUserByUsername(username: string): Promise<UserData | nu
  */
 export async function getUserByTelegramId(telegramId: number): Promise<UserData | null> {
   try {
-    const response = await api.get<{ data: UserData[] }>(
-      `/items/users?filter[telegram_id][_eq]=${telegramId}`
-    );
-
-    const users = Array.isArray(response) ? response : (response?.data || []);
-
-    if (users && users.length > 0) {
-      return users[0];
-    }
-
-    return null;
+    return await supabaseGetUserByTelegramId(telegramId);
   } catch (error) {
     logger.error('Error fetching user by telegram ID', { telegramId, error });
     throw error;
@@ -69,11 +49,12 @@ export async function createUser(payload: CreateUserPayload): Promise<UserData> 
   try {
     logger.debug('Creating new user', { username: payload.username });
 
-    const response = await api.post<{ data: UserData | UserData[] }>('/items/users', payload);
-
-    // Directus returns { data: {...} } for single create
-    const responseData = response?.data;
-    const user = Array.isArray(responseData) ? responseData[0] : responseData;
+    const user = await supabaseCreateUser({
+      username: payload.username,
+      telegram_id: payload.telegram_id,
+      first_name: payload.first_name,
+      last_name: payload.last_name
+    });
 
     if (!user || !user.id) {
       throw new Error('Failed to create user - invalid response');
@@ -84,7 +65,7 @@ export async function createUser(payload: CreateUserPayload): Promise<UserData> 
   } catch (error) {
     logger.error('Error creating user', { payload, error });
 
-    if (error instanceof Error && error.message.includes('duplicate key')) {
+    if (error instanceof Error && error.message.includes('duplicate')) {
       throw new Error('Этот никнейм уже занят');
     }
 
@@ -95,18 +76,16 @@ export async function createUser(payload: CreateUserPayload): Promise<UserData> 
 /**
  * Update user
  */
-export async function updateUser(userId: number, payload: Partial<CreateUserPayload>): Promise<UserData> {
+export async function updateUser(userId: string, payload: Partial<CreateUserPayload>): Promise<UserData> {
   try {
     logger.debug('Updating user', { userId, updates: Object.keys(payload) });
 
-    const response = await api.patch<{ data: UserData | UserData[] }>(
-      `/items/users/${userId}`,
-      payload
-    );
-
-    // Directus returns { data: {...} } for single update
-    const responseData = response?.data;
-    const user = Array.isArray(responseData) ? responseData[0] : responseData;
+    const user = await supabaseUpdateUser(userId, {
+      telegram_id: payload.telegram_id,
+      username: payload.username,
+      first_name: payload.first_name,
+      last_name: payload.last_name
+    });
 
     if (!user || !user.id) {
       throw new Error('Failed to update user - invalid response');
@@ -132,32 +111,7 @@ export async function getOrCreateUserByUsername(
   lastName?: string
 ): Promise<UserData> {
   try {
-    // Check if user exists by username
-    const existingUser = await getUserByUsername(username);
-
-    if (existingUser) {
-      logger.debug('User found', { userId: existingUser.id, username });
-
-      // If telegram ID provided and user doesn't have it, update
-      if (telegramId && !existingUser.telegram_id) {
-        logger.debug('Linking Telegram ID to existing user', { userId: existingUser.id, telegramId });
-        return updateUser(existingUser.id, { telegram_id: telegramId });
-      }
-
-      return existingUser;
-    }
-
-    // Create new user
-    logger.debug('User not found, creating new user', { username, telegramId });
-
-    const newUser = await createUser({
-      username,
-      telegram_id: telegramId,
-      first_name: firstName,
-      last_name: lastName
-    });
-
-    return newUser;
+    return await supabaseGetOrCreateUserByUsername(username, telegramId, firstName, lastName);
   } catch (error) {
     logger.error('Error in getOrCreateUserByUsername', { username, telegramId, error });
     throw error;
@@ -183,7 +137,7 @@ export function saveUserSession(user: UserData): void {
 /**
  * Get saved user session from localStorage
  */
-export function getUserSession(): { userId: number; username: string; telegramId?: number; created_at?: string } | null {
+export function getUserSession(): { userId: string; username: string; telegramId?: number; created_at?: string } | null {
   try {
     const sessionJson = localStorage.getItem('super-strong-user-session');
     if (!sessionJson) return null;

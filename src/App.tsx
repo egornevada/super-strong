@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTelegram } from './hooks/useTelegram';
+import { useUser } from './contexts/UserContext';
 import { syncPendingRequests, isOnline } from './lib/api';
 import { logger } from './lib/logger';
 import { getWorkoutsForDate, getWorkoutSetsForDay, deleteWorkout, getAllWorkoutsForUser } from './services/workoutsApi';
-import { fetchExercises, fetchExerciseById } from './services/directusApi';
+import { fetchExercises } from './services/directusApi';
+import { syncExercisesFromDirectus } from './services/exerciseSyncService';
 import { ExercisesPage } from './pages/ExercisesPage';
 import { CalendarPage } from './pages/CalendarPage';
 import { MyExercisesPage } from './pages/MyExercisesPage';
@@ -33,6 +35,7 @@ interface ExerciseWithTrackSets extends Exercise {
 
 export default function App() {
   useTelegram();
+  const { currentUser, setCurrentUser } = useUser();
   const [currentPage, setCurrentPage] = useState<PageType>('calendar');
   const [showUsernameModal, setShowUsernameModal] = useState(false);
   const [usernameModalError, setUsernameModalError] = useState('');
@@ -42,12 +45,15 @@ export default function App() {
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
   const initializationAttempt = useRef(0);
 
-  // Cache for exercises loaded by ID to avoid redundant API calls
-  const exerciseCacheRef = useRef<Map<string, Exercise>>(new Map());
+  // Reset initialization attempt when user changes
+  useEffect(() => {
+    initializationAttempt.current = 0;
+  }, [currentUser?.id]);
 
   // Load workouts after user is initialized
   useEffect(() => {
-    if (!isInitialized) {
+    if (!isInitialized || !currentUser?.id) {
+      logger.debug('Waiting for initialization', { isInitialized, hasUser: !!currentUser?.id });
       return;
     }
 
@@ -55,12 +61,10 @@ export default function App() {
       try {
         initializationAttempt.current++;
         if (initializationAttempt.current > 1) {
-          logger.warn('Multiple initialization attempts, skipping');
           return;
         }
 
         setIsLoadingWorkouts(true);
-        logger.info('Starting app initialization...');
 
         // Restore saved workouts from localStorage
         try {
@@ -72,34 +76,41 @@ export default function App() {
               newSavedWorkouts.set(key, value as ExerciseWithTrackSets[]);
             });
             setSavedWorkouts(newSavedWorkouts);
-            logger.info('Restored saved workouts from localStorage', { count: newSavedWorkouts.size });
           }
         } catch (error) {
-          logger.warn('Failed to restore saved workouts from localStorage', error);
+          // Silently fail
         }
 
         // Load exercises cache
         const exercisesData = await fetchExercises();
         setAllExercises(exercisesData);
-        logger.info('Exercises loaded', { count: exercisesData.length });
+
+        // Sync exercises from Directus to Supabase
+        if (isOnline()) {
+          try {
+            await syncExercisesFromDirectus();
+          } catch (error) {
+            // Continue anyway - exercises are still available from Directus
+          }
+        }
 
         if (!isOnline()) {
-          logger.info('App offline - skipping sync and workout load');
           setIsLoadingWorkouts(false);
           return;
         }
 
         // Load all workouts from server and recalculate stats
         try {
-          const allWorkoutsFromServer = await getAllWorkoutsForUser();
+          const allWorkoutsFromServer = await getAllWorkoutsForUser(currentUser?.id);
+          const serverWorkoutsMap = new Map<string, Array<{ trackSets: Set[] }>>();
+          const serverExercisesMap = new Map<string, ExerciseWithTrackSets[]>();
+
           if (allWorkoutsFromServer.length > 0) {
             // Convert server workouts to the format expected by recalculateStatsFromSavedWorkouts
-            const serverWorkoutsMap = new Map<string, Array<{ trackSets: Set[] }>>();
-
             for (const workout of allWorkoutsFromServer) {
               if (!workout.id) continue;
 
-              const dateStr = workout.workout_date;
+              const dateStr = workout.date;
               const parts = dateStr.split('-');
               if (parts.length !== 3) continue;
 
@@ -110,9 +121,10 @@ export default function App() {
 
               // Get sets for this workout
               try {
-                const setsData = await getWorkoutSetsForDay(dateStr);
+                const setsData = await getWorkoutSetsForDay(dateStr, currentUser?.id);
                 if (setsData && setsData.exercises.size > 0) {
                   const exercises: Array<{ trackSets: Set[] }> = [];
+                  const exercisesWithInfo: ExerciseWithTrackSets[] = [];
 
                   for (const [directusExerciseId, workoutExercise] of setsData.exercises) {
                     const exerciseSets = setsData.exerciseSets.get(directusExerciseId) || [];
@@ -122,54 +134,69 @@ export default function App() {
                     }));
 
                     exercises.push({ trackSets });
+
+                    // Get exercise info for display
+                    let exerciseInfo = allExercises.find(ex => String(ex.id) === directusExerciseId);
+                    if (!exerciseInfo) {
+                      const exerciseName = (workoutExercise as any).exercise?.name || 'Unknown Exercise';
+                      exerciseInfo = {
+                        id: directusExerciseId,
+                        name: exerciseName,
+                        category: (workoutExercise as any).exercise?.category || 'Unknown',
+                        description: (workoutExercise as any).exercise?.description || ''
+                      };
+                    }
+
+                    exercisesWithInfo.push({
+                      ...exerciseInfo,
+                      trackSets
+                    });
                   }
 
                   if (exercises.length > 0) {
                     serverWorkoutsMap.set(dateKey, exercises);
+                    serverExercisesMap.set(dateKey, exercisesWithInfo);
                   }
                 }
               } catch (err) {
-                logger.warn('Failed to load sets for workout', { workoutId: workout.id, err });
+                // Silently fail
               }
             }
-
-            // Recalculate profile stats from all server workouts
-            const session = getUserSession();
-            recalculateStatsFromSavedWorkouts(serverWorkoutsMap, session?.created_at);
-            logger.info('Profile stats recalculated from server data', { workoutCount: serverWorkoutsMap.size });
           }
+
+          // Update savedWorkouts with server data for UI display
+          setSavedWorkouts(serverExercisesMap);
+
+          // Always recalculate profile stats from server workouts (even if empty)
+          // This ensures stats are synced across browsers
+          recalculateStatsFromSavedWorkouts(serverWorkoutsMap, currentUser?.created_at);
         } catch (err) {
-          logger.warn('Failed to load all workouts from server', { err });
+          // Silently fail
         }
 
         // Sync pending requests
-        logger.info('Syncing pending requests...');
         try {
           await syncPendingRequests();
-          logger.info('Sync complete');
         } catch (syncError) {
-          logger.warn('Sync failed, continuing anyway', syncError);
+          // Continue anyway
         }
 
         // Load current month workouts
         const today = new Date();
         try {
           await loadWorkoutsForCurrentMonth(today.getMonth(), today.getFullYear());
-          logger.info('Current month loaded');
         } catch (loadError) {
-          logger.warn('Failed to load current month', loadError);
+          // Continue anyway
         }
 
         setIsLoadingWorkouts(false);
-        logger.info('App initialization complete');
       } catch (error) {
-        logger.error('Error initializing app:', error);
         setIsLoadingWorkouts(false);
       }
     };
 
     initializeApp();
-  }, [isInitialized]);
+  }, [isInitialized, currentUser?.id]);
 
   // Initialize user - check for existing session or Telegram
   useEffect(() => {
@@ -178,7 +205,17 @@ export default function App() {
         // Check if user already has session
         const existingSession = getUserSession();
         if (existingSession) {
-          logger.info('User session found', { userId: existingSession.userId });
+          // Restore user in context from session
+          const user = {
+            id: existingSession.userId,
+            username: existingSession.username,
+            telegram_id: existingSession.telegramId,
+            created_at: existingSession.created_at || new Date().toISOString(),
+            updated_at: existingSession.created_at || new Date().toISOString(),
+            first_name: undefined,
+            last_name: undefined
+          };
+          setCurrentUser(user);
           setIsInitialized(true);
           return;
         }
@@ -190,7 +227,6 @@ export default function App() {
             const data = JSON.parse(telegramInitData);
             if (data.user) {
               const telegramUser = data.user;
-              logger.info('Telegram user found', { telegramId: telegramUser.id });
 
               // Use Telegram username or ID as identifier
               const username = telegramUser.username || `user_${telegramUser.id}`;
@@ -203,22 +239,20 @@ export default function App() {
                 telegramUser.last_name
               );
 
-              // Save session
+              // Set current user in context and save session for persistence
+              setCurrentUser(user);
               saveUserSession(user);
-              logger.info('User authenticated via Telegram', { userId: user.id });
               setIsInitialized(true);
               return;
             }
           } catch (err) {
-            logger.debug('Failed to parse Telegram data', err);
+            // Failed to parse
           }
         }
 
         // No session and no Telegram - show username modal
-        logger.info('No Telegram data, showing username modal');
         setShowUsernameModal(true);
       } catch (error) {
-        logger.error('Error initializing user', error);
         setUsernameModalError('Ошибка инициализации. Попробуйте снова.');
       }
     };
@@ -232,22 +266,20 @@ export default function App() {
       setUsernameModalLoading(true);
       setUsernameModalError('');
 
-      logger.info('Creating/connecting user with username', { username });
-
       // Get or create user
       const user = await getOrCreateUserByUsername(username);
 
-      // Save session
-      saveUserSession(user);
+      // Set current user in context
+      setCurrentUser(user);
 
-      logger.info('User authenticated via username', { userId: user.id });
+      // Save session to localStorage so it persists across browser refreshes
+      saveUserSession(user);
 
       setShowUsernameModal(false);
       setIsInitialized(true);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Ошибка подключения';
       setUsernameModalError(errorMessage);
-      logger.error('Error confirming username', error);
     } finally {
       setUsernameModalLoading(false);
     }
@@ -256,7 +288,9 @@ export default function App() {
   // Load workouts for a specific month (defaults to current month if not specified)
   const loadWorkoutsForCurrentMonth = useCallback(async (month?: number, year?: number) => {
     try {
-      logger.info('loadWorkoutsForCurrentMonth: START', { month, year });
+      if (!currentUser?.id) {
+        return;
+      }
 
       const today = new Date();
       const targetYear = year ?? today.getFullYear();
@@ -264,18 +298,15 @@ export default function App() {
 
       // Load workouts for the specified month
       const dateStr = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-01`;
-      logger.info('loadWorkoutsForCurrentMonth: Fetching date', { dateStr });
 
-      const workouts = await getWorkoutsForDate(dateStr);
-      logger.info('loadWorkoutsForCurrentMonth: Got workouts', { count: workouts.length });
+      const workouts = await getWorkoutsForDate(dateStr, currentUser.id);
 
       // Extract unique days that have workouts
       const newDaysWithWorkouts = new Set<string>();
       workouts.forEach((workout) => {
-        const dateField = workout.workout_date;
+        const dateField = workout.date;
 
         if (!dateField) {
-          logger.warn('Workout has no date field', { id: workout.id });
           return;
         }
 
@@ -294,18 +325,23 @@ export default function App() {
         newDaysWithWorkouts.forEach(day => merged.add(day));
         return Array.from(merged);
       });
-      logger.info('Workouts loaded from server', { count: workouts.length });
     } catch (error) {
-      logger.error('Failed to load workouts from server', error);
       // Silently fail - use local data if available
     }
-  }, []);
+  }, [currentUser?.id]);
 
   // Handle month changes in calendar
   const handleCalendarMonthChange = async (month: number, year: number) => {
-    logger.info('Calendar month changed', { month, year });
     await loadWorkoutsForCurrentMonth(month, year);
   };
+
+  // Load workouts when user is authenticated
+  useEffect(() => {
+    if (isInitialized && currentUser?.id) {
+      loadWorkoutsForCurrentMonth();
+    }
+  }, [isInitialized, currentUser?.id, loadWorkoutsForCurrentMonth]);
+
   const [selectedDate, setSelectedDate] = useState<SelectedDate | null>(null);
   const [calendarScrollPosition, setCalendarScrollPosition] = useState(0);
   const [selectedExercises, setSelectedExercises] = useState<Exercise[]>([]);
@@ -313,7 +349,7 @@ export default function App() {
   const [workoutDays, setWorkoutDays] = useState<string[]>([]);
   const [savedWorkouts, setSavedWorkouts] = useState<Map<string, ExerciseWithTrackSets[]>>(new Map());
   const [isClosing, setIsClosing] = useState(false);
-  const [currentWorkoutId, setCurrentWorkoutId] = useState<number | null>(null);
+  const [currentWorkoutId, setCurrentWorkoutId] = useState<string | null>(null);
 
   const handleDayClick = async (day: number, month: number, year: number) => {
     // Сохраняем позицию скролла календаря перед переходом
@@ -325,13 +361,12 @@ export default function App() {
 
     const dateKey = `${day}-${month}-${year}`;
     let savedExercises: ExerciseWithTrackSets[] | null = null;
-    let workoutId: number | null = null;
+    let workoutId: string | null = null;
 
     // ALWAYS try to load from server first to ensure sync across browsers
-    logger.info('Loading workout for day from server', { dateKey });
     try {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const workoutSetsData = await getWorkoutSetsForDay(dateStr);
+      const workoutSetsData = await getWorkoutSetsForDay(dateStr, currentUser?.id);
 
       if (workoutSetsData && workoutSetsData.exercises.size > 0) {
         workoutId = workoutSetsData.workoutId;
@@ -353,13 +388,19 @@ export default function App() {
           if (!exerciseInfo) {
             // Если нет в кэше, пытаемся загрузить
             try {
-              exerciseInfo = await fetchExerciseById(directusExerciseId);
+              // Get exercise name from the exercise object in workoutExercise
+              const exerciseName = (workoutExercise as any).exercise?.name || 'Unknown Exercise';
+              exerciseInfo = {
+                id: directusExerciseId,
+                name: exerciseName,
+                category: (workoutExercise as any).exercise?.category || 'Unknown',
+                description: (workoutExercise as any).exercise?.description || ''
+              };
             } catch (err) {
-              logger.warn('Failed to load exercise info', { exerciseId: directusExerciseId, err });
               // Создаем минимальный объект упражнения
               exerciseInfo = {
                 id: directusExerciseId,
-                name: workoutExercise.exercise_name || 'Unknown Exercise',
+                name: 'Unknown Exercise',
                 category: 'Unknown',
                 description: ''
               };
@@ -373,21 +414,17 @@ export default function App() {
         }
 
         savedExercises = exercisesFromServer;
-        logger.info('Loaded workout from server', { dateKey, exerciseCount: exercisesFromServer.length });
 
         // Update profileStats with data loaded from server
-        const session = getUserSession();
-        recordProfileWorkout(dateStr, exercisesFromServer, session?.created_at);
+        recordProfileWorkout(dateStr, exercisesFromServer, currentUser?.created_at);
       }
     } catch (error) {
-      logger.warn('Failed to load from server, will try localStorage', { dateKey, error });
       // Fall back to localStorage if server fails
       savedExercises = savedWorkouts.get(dateKey) || null;
     }
 
     if (savedExercises && savedExercises.length > 0) {
       // Если есть сохраненная тренировка - переходим на MyExercisesPage
-      logger.info('Loading saved workout for day', { dateKey, exerciseCount: savedExercises.length });
       const newTrackedSets = new Map<string, Set[]>();
       savedExercises.forEach(ex => {
         // Ensure ID is string for consistent storage
@@ -399,7 +436,6 @@ export default function App() {
       setCurrentPage('tracking');
     } else {
       // Иначе переходим на ExercisesPage для выбора упражнений
-      logger.info('No saved workout for day, showing exercise selection', { dateKey });
       setCurrentWorkoutId(null);
       setSelectedExercises([]);
       setExercisesWithTrackedSets(new Map());
@@ -408,12 +444,8 @@ export default function App() {
   };
 
   const handleBackFromExercises = () => {
-    logger.warn('[PAGE] handleBackFromExercises called');
-    const stack = new Error().stack;
-    logger.warn('[PAGE] Stack trace', { stack });
     setIsClosing(true);
     setTimeout(() => {
-      logger.warn('[PAGE] Setting currentPage to calendar');
       setCurrentPage('calendar');
       setIsClosing(false);
       setSelectedExercises([]);
@@ -428,46 +460,12 @@ export default function App() {
   };
 
   const handleGoToMyExercises = (exercises: Exercise[]) => {
-    logger.warn('[PAGE] handleGoToMyExercises called', { exerciseCount: exercises.length });
     setIsClosing(true);
     setTimeout(() => {
       setSelectedExercises(exercises);
-      logger.warn('[PAGE] Setting currentPage to tracking');
       setCurrentPage('tracking');
       setIsClosing(false);
     }, 300);
-  };
-
-  // Helper: Get exercise by ID from multiple sources
-  const getExerciseById = async (id: string): Promise<Exercise | null> => {
-    // 1. Check cache first
-    if (exerciseCacheRef.current.has(id)) {
-      return exerciseCacheRef.current.get(id) || null;
-    }
-
-    // 2. Check in selectedExercises (exercises user already selected)
-    const selectedEx = selectedExercises.find(ex => String(ex.id) === id);
-    if (selectedEx) {
-      exerciseCacheRef.current.set(id, selectedEx);
-      return selectedEx;
-    }
-
-    // 3. Check in allExercises cache
-    const cachedEx = allExercises.find(ex => String(ex.id) === id);
-    if (cachedEx) {
-      exerciseCacheRef.current.set(id, cachedEx);
-      return cachedEx;
-    }
-
-    // 4. Load from Directus if not found anywhere
-    try {
-      const exercise = await fetchExerciseById(id);
-      exerciseCacheRef.current.set(id, exercise);
-      return exercise;
-    } catch (error) {
-      logger.warn('Failed to load exercise from Directus', { id, error });
-      return null;
-    }
   };
 
   // Получить упражнения с trackSets для MyExercisesPage
@@ -514,11 +512,10 @@ export default function App() {
 
     if (date) {
       const workoutDate = `${date.year}-${String(date.month + 1).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`;
-      const session = getUserSession();
       recordProfileWorkout(
         workoutDate,
         exercises.map(({ trackSets }) => ({ trackSets })),
-        session?.created_at
+        currentUser?.created_at
       );
     }
 

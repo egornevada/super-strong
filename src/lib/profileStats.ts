@@ -116,7 +116,13 @@ export interface ProfileStatsSummary {
 const computeSummary = (store: ProfileStatsStore, userCreatedAt?: string): ProfileStatsSummary => {
   const entries = Object.entries(store.workouts);
 
+  console.log('[profileStats] computeSummary called with', {
+    entriesCount: entries.length,
+    store
+  });
+
   if (!entries.length) {
+    console.log('[profileStats] No entries in store, returning empty summary');
     return {
       totalSets: 0,
       totalWeight: 0,
@@ -138,6 +144,8 @@ const computeSummary = (store: ProfileStatsStore, userCreatedAt?: string): Profi
     const sets = summary.totalSets ?? 0;
     const weight = summary.totalWeight ?? 0;
 
+    console.log('[profileStats] Processing entry', { date, sets, weight });
+
     if (sets > 0) {
       workoutsCompleted += 1;
     }
@@ -150,7 +158,7 @@ const computeSummary = (store: ProfileStatsStore, userCreatedAt?: string): Profi
     }
   });
 
-  return {
+  const result = {
     totalSets,
     totalWeight: clampTwoDecimals(totalWeight),
     workoutsCompleted,
@@ -158,6 +166,9 @@ const computeSummary = (store: ProfileStatsStore, userCreatedAt?: string): Profi
     daysSinceUserCreation: userCreatedAt ? differenceInDays(userCreatedAt) + 1 : 0,
     firstWorkoutDate: earliestDate,
   };
+
+  console.log('[profileStats] computeSummary returning', result);
+  return result;
 };
 
 export const PROFILE_STATS_STORAGE_KEY = STORAGE_KEY;
@@ -215,8 +226,25 @@ export const recalculateStatsFromSavedWorkouts = (
 ): ProfileStatsSummary => {
   const store: ProfileStatsStore = { workouts: {} };
 
+  console.log('[profileStats] recalculateStatsFromSavedWorkouts called with', {
+    savedWorkoutsSize: savedWorkouts.size,
+    userCreatedAt
+  });
+
   savedWorkouts.forEach((exercises, dateKey) => {
+    console.log('[profileStats] Processing date', {
+      dateKey,
+      exercisesCount: exercises.length,
+      exercises
+    });
+
     const { totalSets, totalWeight } = parseSets(exercises);
+    console.log('[profileStats] Parsed sets for date', {
+      dateKey,
+      totalSets,
+      totalWeight
+    });
+
     if (totalSets > 0) {
       store.workouts[dateKey] = {
         totalSets,
@@ -226,6 +254,9 @@ export const recalculateStatsFromSavedWorkouts = (
     }
   });
 
+  console.log('[profileStats] Store after processing', { store });
   writeStore(store);
-  return computeSummary(store, userCreatedAt);
+  const summary = computeSummary(store, userCreatedAt);
+  console.log('[profileStats] Final summary', { summary });
+  return summary;
 };
