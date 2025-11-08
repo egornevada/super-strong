@@ -182,6 +182,28 @@ export async function getOrCreateUserByUsername(
   }
 }
 
+export async function deleteUser(userId: string): Promise<boolean> {
+  try {
+    logger.info('Deleting user and all associated data', { userId });
+
+    // Delete user (this will cascade delete all related data due to foreign keys)
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', userId);
+
+    if (error) {
+      throw error;
+    }
+
+    logger.info('User and all associated data deleted successfully', { userId });
+    return true;
+  } catch (error) {
+    logger.error('Error deleting user', { userId, error });
+    throw error;
+  }
+}
+
 // ============================================================================
 // Exercises
 // ============================================================================

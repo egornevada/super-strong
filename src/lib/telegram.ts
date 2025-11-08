@@ -155,17 +155,22 @@ export function setupTelegramBackButton(onBack?: () => void) {
 }
 
 /**
- * Delete user account via API and close app
+ * Delete user account via Supabase and close app
  * Returns true if successful, false otherwise
  */
 export async function deleteAccountAndClose(): Promise<boolean> {
   try {
-    // Import API client
-    const { api } = await import('./api');
+    // Import auth API
+    const { getUserSession, deleteUserAccount } = await import('../services/authApi');
 
-    // Call delete account endpoint
-    // This will be handled by the backend when implemented
-    await api.post('/danger/delete-account');
+    // Get current user from session
+    const session = getUserSession();
+    if (!session || !session.userId) {
+      throw new Error('No user session found');
+    }
+
+    // Delete user account from Supabase
+    await deleteUserAccount(session.userId);
 
     // Clear all local data
     localStorage.clear();

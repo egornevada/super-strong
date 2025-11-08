@@ -5,7 +5,8 @@ import {
   getUserByTelegramId as supabaseGetUserByTelegramId,
   createUser as supabaseCreateUser,
   updateUser as supabaseUpdateUser,
-  getOrCreateUserByUsername as supabaseGetOrCreateUserByUsername
+  getOrCreateUserByUsername as supabaseGetOrCreateUserByUsername,
+  deleteUser as supabaseDeleteUser
 } from './supabaseApi';
 
 // Re-export Supabase User interface as UserData for compatibility
@@ -161,4 +162,27 @@ export function getUserSession(): { userId: string; username: string; telegramId
 export function clearUserSession(): void {
   localStorage.removeItem('super-strong-user-session');
   logger.debug('User session cleared');
+}
+
+/**
+ * Delete user account and all associated data
+ */
+export async function deleteUserAccount(userId: string): Promise<boolean> {
+  try {
+    logger.info('Deleting user account', { userId });
+
+    // Delete from Supabase
+    const success = await supabaseDeleteUser(userId);
+
+    if (success) {
+      // Clear session from localStorage
+      clearUserSession();
+      logger.info('User account deleted successfully', { userId });
+    }
+
+    return success;
+  } catch (error) {
+    logger.error('Error deleting user account', { userId, error });
+    throw error;
+  }
 }

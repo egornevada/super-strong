@@ -42,6 +42,7 @@ export default function App() {
   const [usernameModalLoading, setUsernameModalLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLoadingWorkouts, setIsLoadingWorkouts] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
   const initializationAttempt = useRef(0);
 
@@ -65,6 +66,7 @@ export default function App() {
         }
 
         setIsLoadingWorkouts(true);
+        setLoadingProgress(10);
 
         // Restore saved workouts from localStorage
         try {
@@ -81,9 +83,12 @@ export default function App() {
           // Silently fail
         }
 
+        setLoadingProgress(20);
+
         // Load exercises cache
         const exercisesData = await fetchExercises();
         setAllExercises(exercisesData);
+        setLoadingProgress(30);
 
         // Sync exercises from Directus to Supabase
         if (isOnline()) {
@@ -94,14 +99,18 @@ export default function App() {
           }
         }
 
+        setLoadingProgress(40);
+
         if (!isOnline()) {
           setIsLoadingWorkouts(false);
+          setLoadingProgress(0);
           return;
         }
 
         // Load all workouts from server and recalculate stats
         try {
           const allWorkoutsFromServer = await getAllWorkoutsForUser(currentUser?.id);
+          setLoadingProgress(50);
           const serverWorkoutsMap = new Map<string, Array<{ trackSets: Set[] }>>();
           const serverExercisesMap = new Map<string, ExerciseWithTrackSets[]>();
 
@@ -174,12 +183,16 @@ export default function App() {
           // Silently fail
         }
 
+        setLoadingProgress(70);
+
         // Sync pending requests
         try {
           await syncPendingRequests();
         } catch (syncError) {
           // Continue anyway
         }
+
+        setLoadingProgress(85);
 
         // Load current month workouts
         const today = new Date();
@@ -189,9 +202,12 @@ export default function App() {
           // Continue anyway
         }
 
+        setLoadingProgress(100);
         setIsLoadingWorkouts(false);
+        setLoadingProgress(0);
       } catch (error) {
         setIsLoadingWorkouts(false);
+        setLoadingProgress(0);
       }
     };
 
@@ -660,9 +676,18 @@ export default function App() {
           </>
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <div className="flex flex-col items-center gap-4">
-              <div className="w-12 h-12 border-4 border-bg-2 border-t-brand-500 rounded-full animate-spin" />
-              <p className="text-fg-3 text-sm">Загрузка...</p>
+            <div className="flex flex-col items-center gap-6 px-6">
+              <p className="text-fg-3 text-sm">Загрузка приложения...</p>
+
+              {/* Progress bar */}
+              <div className="w-full max-w-xs h-2 bg-bg-2 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-brand-500 to-brand-400 rounded-full transition-all duration-300 ease-out"
+                  style={{ width: `${loadingProgress}%` }}
+                />
+              </div>
+
+              <p className="text-fg-2 text-xs">{loadingProgress}%</p>
             </div>
           </div>
         )}
