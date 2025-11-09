@@ -3,10 +3,10 @@ import { HeaderWithBackButton, Button, TrackCard, type Set } from '../components
 import { type Exercise } from '../services/directusApi';
 import { useExerciseDetailSheet } from '../contexts/SheetContext';
 import { useUser } from '../contexts/UserContext';
-import { saveWorkout, convertExerciseToApiFormat, deleteWorkout } from '../services/workoutsApi';
+import { convertExerciseToApiFormat, deleteWorkout, createAndSaveWorkoutSession, updateWorkoutSessionExercises } from '../services/workoutsApi';
 import { logger } from '../lib/logger';
 import { showTelegramAlert } from '../lib/telegram';
-import ArrowCircleLeftIcon from '@mui/icons-material/ArrowCircleLeft';
+import ArrowCircleLeftRounded from '@mui/icons-material/ArrowCircleLeftRounded';
 
 interface SelectedDate {
   day: number;
@@ -22,6 +22,9 @@ interface MyExercisesPageProps {
   onSave?: (exercises: ExerciseWithTrackSets[], date: SelectedDate) => void;
   currentWorkoutId?: string | null;
   onWorkoutDeleted?: () => void;
+  userDayId?: string | null;
+  workoutSessionId?: string | null;
+  workoutStartTime?: string | null;
 }
 
 interface ExerciseWithTrackSets extends Exercise {
@@ -35,17 +38,20 @@ export function MyExercisesPage({
   onSelectMoreExercises,
   onSave,
   currentWorkoutId,
-  onWorkoutDeleted
+  onWorkoutDeleted,
+  userDayId,
+  workoutSessionId,
+  workoutStartTime
 }: MyExercisesPageProps) {
   const { currentUser } = useUser();
 
   logger.info('[TRACKING] MyExercisesPage mounted/updated', {
     selectedExercisesCount: selectedExercises?.length,
     selectedDate,
-    hasOnBack: !!onBack,
-    hasOnSelectMoreExercises: !!onSelectMoreExercises,
-    hasOnSave: !!onSave
+    userDayId,
+    hasCurrentUser: !!currentUser?.id
   });
+
   const { openExerciseDetail } = useExerciseDetailSheet();
   const [exercisesWithSets, setExercisesWithSets] = useState<ExerciseWithTrackSets[]>(selectedExercises);
   const [isSaving, setIsSaving] = useState(false);
@@ -77,10 +83,8 @@ export function MyExercisesPage({
         logger.error('Failed to delete workout', error);
         showTelegramAlert('Ошибка удаления тренировки');
       }
-    } else {
-      // Save the updated workout with remaining exercises
-      await handleAutoSaveWorkout(updated);
     }
+    // Note: Don't save here - will save when user goes back to calendar
   };
 
   const handleExerciseImageClick = (exerciseId: string) => {
@@ -104,25 +108,33 @@ export function MyExercisesPage({
     'Дек.',
   ];
 
-  const handleAddSet = async (exerciseIndex: number, reps: number, weight: number) => {
-    logger.warn('[TRACKING] handleAddSet called', { exerciseIndex, reps, weight });
+  const formatTime = (isoString: string): string => {
+    try {
+      const date = new Date(isoString);
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${hours}:${minutes}`;
+    } catch {
+      return 'N/A';
+    }
+  };
+
+  const pageTitle = workoutStartTime
+    ? `Тренировка ${formatTime(workoutStartTime)}`
+    : 'Ваши упражнения';
+
+  const handleAddSet = (exerciseIndex: number, reps: number, weight: number) => {
+    logger.debug('handleAddSet called', { exerciseIndex, reps, weight });
     const updated = [...exercisesWithSets];
     const target = updated[exerciseIndex];
     if (!target) return;
 
     const trackSets = [...target.trackSets, { reps, weight }];
     updated[exerciseIndex] = { ...target, trackSets };
-    logger.debug('Set added', { exerciseName: target.name, reps, weight });
-
     setExercisesWithSets(updated);
-
-    // Save immediately
-    logger.warn('[TRACKING] About to save workout');
-    await handleAutoSaveWorkout(updated);
-    logger.warn('[TRACKING] Workout save completed');
   };
 
-  const handleUpdateSet = async (exerciseIndex: number, setIndex: number, reps: number, weight: number) => {
+  const handleUpdateSet = (exerciseIndex: number, setIndex: number, reps: number, weight: number) => {
     const updated = [...exercisesWithSets];
     const target = updated[exerciseIndex];
     if (!target) return;
@@ -134,15 +146,10 @@ export function MyExercisesPage({
 
     trackSets[setIndex] = { reps, weight };
     updated[exerciseIndex] = { ...target, trackSets };
-    logger.debug('Set updated', { exerciseName: target.name, setIndex: setIndex + 1, reps, weight });
-
     setExercisesWithSets(updated);
-
-    // Save immediately
-    await handleAutoSaveWorkout(updated);
   };
 
-  const handleDeleteSet = async (exerciseIndex: number, setIndex: number) => {
+  const handleDeleteSet = (exerciseIndex: number, setIndex: number) => {
     const updated = [...exercisesWithSets];
     const target = updated[exerciseIndex];
     if (!target) return;
@@ -157,9 +164,6 @@ export function MyExercisesPage({
     logger.debug('Set deleted', { exerciseName: target.name, setIndex: setIndex + 1, remainingSets: trackSets.length });
 
     setExercisesWithSets(updated);
-
-    // Save immediately
-    await handleAutoSaveWorkout(updated);
   };
 
   const handleSelectMoreExercises = () => {
@@ -171,58 +175,64 @@ export function MyExercisesPage({
   };
 
   const handleAutoSaveWorkout = async (exercises: ExerciseWithTrackSets[] = exercisesWithSets) => {
-    logger.warn('[TRACKING] handleAutoSaveWorkout called');
-    if (!selectedDate || exercises.length === 0) {
-      logger.warn('[TRACKING] Skipping save - no date or exercises');
-      return;
-    }
-
     // Prevent concurrent saves
     if (savingRef.current) {
-      logger.warn('[TRACKING] Skipping save - already saving');
+      logger.debug('Skipping save - already saving');
       return;
     }
 
     try {
       savingRef.current = true;
       setIsSaving(true);
-      const dateStr = `${selectedDate.year}-${String(selectedDate.month + 1).padStart(2, '0')}-${String(selectedDate.day).padStart(2, '0')}`;
 
-      // Convert all selected exercises to API format (including those without sets)
-      const apiExercises = exercises
-        .map(ex => convertExerciseToApiFormat(ex.id, ex.trackSets));
+      // Convert exercises to API format
+      const apiExercises = exercises.map(ex => convertExerciseToApiFormat(String(ex.id), ex.trackSets));
 
-      // Only save if there are exercises selected for the workout
-      if (apiExercises.length === 0) {
-        logger.warn('[TRACKING] No exercises selected, skipping save');
-        setIsSaving(false);
+      // If this is an existing workout session, update it
+      if (workoutSessionId) {
+        logger.info('Updating existing workout session', {
+          workoutSessionId,
+          exerciseCount: apiExercises.length,
+          setCount: apiExercises.reduce((sum, ex) => sum + ex.sets.length, 0)
+        });
+
+        await updateWorkoutSessionExercises(workoutSessionId, apiExercises);
+
+        logger.info('Workout session updated successfully', { workoutSessionId, exerciseCount: apiExercises.length });
         return;
       }
 
-      logger.warn('[TRACKING] Saving workout to server...', { dateStr, exerciseCount: apiExercises.length, hasEmptyExercises: apiExercises.some(ex => ex.sets.length === 0) });
-      logger.info('Saving workout...', { dateStr, exerciseCount: apiExercises.length });
-
-      // Save to server (save even if no exercises have sets)
-      if (!currentUser?.id) {
-        throw new Error('No user logged in');
+      // For NEW workouts, validate required inputs
+      if (!selectedDate || !userDayId || !currentUser?.id || exercises.length === 0) {
+        logger.debug('Skipping save - missing required data for new workout', {
+          hasDate: !!selectedDate,
+          hasUserDayId: !!userDayId,
+          hasUserId: !!currentUser?.id,
+          exerciseCount: exercises.length
+        });
+        return;
       }
-      const workoutId = await saveWorkout(dateStr, apiExercises, currentUser.id);
 
-      // Update parent state to reflect new workout (adds dot to calendar)
-      // This does NOT navigate away - it only updates the workoutDays state
-      logger.warn('[TRACKING] Calling onSave callback', { workoutId });
+      logger.info('Saving NEW workout session', {
+        userDayId,
+        exerciseCount: apiExercises.length,
+        setCount: apiExercises.reduce((sum, ex) => sum + ex.sets.length, 0)
+      });
+
+      // Save to server - this creates a NEW session and saves all exercises
+      const sessionId = await createAndSaveWorkoutSession(currentUser.id, userDayId, apiExercises);
+
+      logger.info('Workout session saved successfully', { sessionId, exerciseCount: apiExercises.length });
+
+      // Notify parent to update calendar
       onSave?.(exercises, selectedDate);
 
-      logger.warn('[TRACKING] Workout saved successfully', { workoutId });
-      logger.info('Workout saved successfully', { workoutId, exerciseCount: apiExercises.length });
     } catch (error) {
-      logger.warn('[TRACKING] Error saving workout', error);
-      logger.error('Failed to save workout', error);
+      logger.error('Failed to save workout session', { error });
       showTelegramAlert('Ошибка сохранения тренировки');
     } finally {
       savingRef.current = false;
       setIsSaving(false);
-      logger.warn('[TRACKING] Save attempt finished');
     }
   };
 
@@ -277,7 +287,7 @@ export function MyExercisesPage({
           {exercisesWithSets.length > 0 ? (
             <div className="px-3 py-4">
               <h2 className="text-fg-1 text-heading-md mb-4">
-                Ваши упражнения
+                {pageTitle}
               </h2>
               {exercisesWithSets.map((exercise, index) => (
                 <TrackCard
@@ -334,7 +344,7 @@ export function MyExercisesPage({
             size="md"
             className="w-full rounded-none pt-4 pb-6"
             style={{ borderRadius: '0', height: '64px' }}
-            leftIcon={<ArrowCircleLeftIcon />}
+            leftIcon={<ArrowCircleLeftRounded />}
             onClick={handleSelectMoreExercises}
           >
             Выбрать больше упражнений

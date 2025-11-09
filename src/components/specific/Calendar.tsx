@@ -1,8 +1,8 @@
 import * as React from 'react';
 import { Day } from './Day';
 import { Button } from '../main/Button';
-import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
-import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import KeyboardArrowLeftRounded from '@mui/icons-material/KeyboardArrowLeftRounded';
+import KeyboardArrowRightRounded from '@mui/icons-material/KeyboardArrowRightRounded';
 
 export interface CalendarProps {
   month?: number;
@@ -106,7 +106,7 @@ export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
                 priority="secondary"
                 tone="default"
                 size="sm"
-                leftIcon={<KeyboardArrowLeftIcon />}
+                leftIcon={<KeyboardArrowLeftRounded />}
                 aria-label="Previous month"
                 iconOnly
                 onClick={handlePrevMonth}
@@ -115,7 +115,7 @@ export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
                 priority="secondary"
                 tone="default"
                 size="sm"
-                leftIcon={<KeyboardArrowRightIcon />}
+                leftIcon={<KeyboardArrowRightRounded />}
                 aria-label="Next month"
                 iconOnly
                 onClick={handleNextMonth}

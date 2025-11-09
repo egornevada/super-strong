@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import CloseIcon from '@mui/icons-material/Close';
+import CloseRounded from '@mui/icons-material/CloseRounded';
 
 export interface TextFieldProps {
   label: string;
@@ -173,7 +173,7 @@ export function TextField({
               transform: 'translateY(-50%)',
             }}
           >
-            <CloseIcon sx={{ fontSize: 24, color: getClearButtonColor() }} />
+            <CloseRounded sx={{ fontSize: 24, color: getClearButtonColor() }} />
           </button>
         )}
       </div>

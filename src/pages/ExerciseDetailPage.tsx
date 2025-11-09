@@ -3,7 +3,7 @@ import { PageLayout } from '../components/PageLayout'
 import { AlertDialog, Button } from '../components'
 import { fetchExerciseById, type Exercise } from '../services/directusApi'
 import { useExerciseDetailSheet } from '../contexts/SheetContext'
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded'
 
 interface ExerciseDetailPageProps {
   exerciseId: string
@@ -126,7 +126,7 @@ export function ExerciseDetailPage({
               tone="error"
               size="md"
               className="w-full"
-              leftIcon={<DeleteOutlineIcon />}
+              leftIcon={<DeleteOutlineRounded />}
               onClick={handleDeleteClick}
             >
               Удалить упражнение

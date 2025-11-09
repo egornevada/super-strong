@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Button } from "../main/Button";
-import AddIcon from "@mui/icons-material/Add";
-import CancelIcon from "@mui/icons-material/Cancel";
+import AddRounded from "@mui/icons-material/AddRounded";
+import CloseRounded from "@mui/icons-material/CloseRounded";
 
 export interface ExerciseCardProps {
   id: string;
@@ -26,31 +26,62 @@ export const ExerciseCard = React.forwardRef<HTMLDivElement, ExerciseCardProps>(
     return (
       <div
         ref={ref}
-        className="flex flex-col overflow-hidden w-full"
+        className="flex flex-col w-full"
       >
-        {/* Image placeholder - square aspect ratio, responsive width */}
+        {/* Image container with relative positioning for overlay button */}
         <div
-          className="flex-shrink-0 bg-bg-3 rounded-xl flex items-center justify-center overflow-hidden w-full cursor-pointer hover:opacity-80 transition-opacity"
-          style={{ aspectRatio: "1", marginBottom: "2px" }}
+          className="flex-shrink-0 relative w-full cursor-pointer"
+          style={{ aspectRatio: "1", marginBottom: "4px" }}
           onClick={handleImageClick}
         >
-          {image ? (
-            image
-          ) : (
-            <svg
-              className="w-12 h-12 text-fg-3"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          {/* Image placeholder - square aspect ratio, rounded 24px with shadow */}
+          <div
+            className="bg-bg-1 rounded-[24px] flex items-center justify-center overflow-hidden w-full h-full hover:opacity-80 transition-opacity"
+            style={{ boxShadow: 'var(--shadow-card)' }}
+          >
+            {image ? (
+              image
+            ) : (
+              <svg
+                className="w-12 h-12 text-fg-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+            )}
+          </div>
+
+          {/* Select/Deselect button - absolute positioned in bottom right corner */}
+          <div
+            className="absolute"
+            style={{
+              bottom: "8px",
+              right: "8px"
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleClick();
+            }}
+          >
+            <Button
+              size="md"
+              priority={isSelected ? "primary" : "secondary"}
+              tone="default"
+              className={isSelected ? "" : ""}
+              leftIcon={isSelected ? <CloseRounded /> : <AddRounded />}
+              iconOnly={!isSelected}
+              aria-label={isSelected ? "Remove exercise" : "Add exercise"}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-          )}
+              {isSelected ? "Убрать" : ""}
+            </Button>
+          </div>
         </div>
 
         {/* Name - Inter medium, line-height 24, letter-spacing -4%, max 2 lines, fixed height 48px */}
@@ -68,18 +99,6 @@ export const ExerciseCard = React.forwardRef<HTMLDivElement, ExerciseCardProps>(
         >
           {name}
         </h3>
-
-        {/* Select button - sm size with state */}
-        <Button
-          size="sm"
-          priority={isSelected ? "primary" : "secondary"}
-          tone="default"
-          onClick={handleClick}
-          className="w-full"
-          leftIcon={isSelected ? <CancelIcon /> : <AddIcon />}
-        >
-          {isSelected ? "Снять выбор" : "Выбрать"}
-        </Button>
       </div>
     );
   }

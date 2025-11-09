@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react
 import { FilterPill, ExerciseCard, Button, HeaderWithBackButton, StickyTagsBar, ErrorPage } from '../components';
 import { fetchExercises, fetchCategories, type Exercise } from '../services/directusApi';
 import { useExerciseDetailSheet } from '../contexts/SheetContext';
-import ArrowCircleRightIcon from '@mui/icons-material/ArrowCircleRight';
+import ArrowCircleRightRounded from '@mui/icons-material/ArrowCircleRightRounded';
 
 const STICKY_TOP = 64; // высота фиксированной шапки
 
@@ -302,7 +302,7 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
             size="md"
             className="w-full rounded-none pt-4 pb-6"
             style={{ borderRadius: '0', height: '64px' }}
-            rightIcon={<ArrowCircleRightIcon />}
+            rightIcon={<ArrowCircleRightRounded />}
             onClick={() => {
               const selectedList = exercises.filter((ex: Exercise) =>
                 selectedExercises.includes(ex.id)

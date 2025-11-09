@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Button } from '../main/Button';
 import { SetModal } from '../modals';
-import AddCircleIcon from '@mui/icons-material/AddCircle';
+import AddCircleRounded from '@mui/icons-material/AddCircleRounded';
 
 export interface Set {
   reps: number;
@@ -90,7 +90,7 @@ export const TrackCard = React.forwardRef<HTMLDivElement, TrackCardProps>(
       <div
         ref={ref}
         className="bg-bg-2 rounded-2xl overflow-hidden mb-4"
-        style={{ boxShadow: '0 2px 8px 0 rgba(0, 0, 0, 0.15)' }}
+        style={{ boxShadow: 'var(--shadow-card)' }}
       >
         {/* Top block - exercise info */}
         <div
@@ -99,7 +99,7 @@ export const TrackCard = React.forwardRef<HTMLDivElement, TrackCardProps>(
         >
           <div className="flex items-center gap-3" style={{ gap: '8px' }}>
             <div
-              className="flex-shrink-0 bg-bg-3 rounded-lg flex items-center justify-center overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+              className="flex-shrink-0 bg-bg-1 rounded-lg flex items-center justify-center overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
               style={{ width: '44px', height: '44px' }}
               onClick={handleImageClick}
             >
@@ -158,7 +158,7 @@ export const TrackCard = React.forwardRef<HTMLDivElement, TrackCardProps>(
               size="sm"
               priority="tertiary"
               tone="default"
-              leftIcon={<AddCircleIcon />}
+              leftIcon={<AddCircleRounded />}
               iconOnly
               onClick={openAddModal}
               aria-label="Add set"

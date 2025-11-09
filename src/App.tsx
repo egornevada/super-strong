@@ -3,12 +3,14 @@ import { useTelegram } from './hooks/useTelegram';
 import { useUser } from './contexts/UserContext';
 import { syncPendingRequests, isOnline } from './lib/api';
 import { logger } from './lib/logger';
-import { getWorkoutsForDate, getWorkoutSetsForDay, deleteWorkout, getAllWorkoutsForUser } from './services/workoutsApi';
+import { showTelegramAlert } from './lib/telegram';
+import { getWorkoutsForDate, getWorkoutSetsForDay, deleteWorkout, getAllWorkoutsForUser, getWorkoutSessionsWithCount, getWorkoutSessionExercises } from './services/workoutsApi';
 import { fetchExercises } from './services/directusApi';
 import { syncExercisesFromDirectus } from './services/exerciseSyncService';
 import { ExercisesPage } from './pages/ExercisesPage';
 import { CalendarPage } from './pages/CalendarPage';
 import { MyExercisesPage } from './pages/MyExercisesPage';
+import { DayDetailPage } from './pages/DayDetailPage';
 import { type Exercise } from './services/directusApi';
 import { type Set, UsernameModal } from './components';
 import { ExerciseDetailSheetRenderer } from './components/SheetRenderer';
@@ -20,8 +22,12 @@ import {
   saveUserSession,
   getUserSession
 } from './services/authApi';
+import {
+  getUserDayByDate,
+  createUserDay
+} from './services/supabaseApi';
 
-type PageType = 'calendar' | 'exercises' | 'tracking';
+type PageType = 'calendar' | 'exercises' | 'tracking' | 'daydetail';
 
 interface SelectedDate {
   day: number;
@@ -371,6 +377,10 @@ export default function App() {
   const [savedWorkouts, setSavedWorkouts] = useState<Map<string, ExerciseWithTrackSets[]>>(new Map());
   const [isClosing, setIsClosing] = useState(false);
   const [currentWorkoutId, setCurrentWorkoutId] = useState<string | null>(null);
+  const [currentUserDayId, setCurrentUserDayId] = useState<string | null>(null);
+  const [dayDetailRefreshKey, setDayDetailRefreshKey] = useState(0);
+  const [currentWorkoutSessionId, setCurrentWorkoutSessionId] = useState<string | null>(null);
+  const [currentWorkoutStartTime, setCurrentWorkoutStartTime] = useState<string | null>(null);
 
   const handleDayClick = async (day: number, month: number, year: number) => {
     // Сохраняем позицию скролла календаря перед переходом
@@ -380,83 +390,38 @@ export default function App() {
     }
     setSelectedDate({ day, month, year });
 
-    const dateKey = `${day}-${month}-${year}`;
-    let savedExercises: ExerciseWithTrackSets[] | null = null;
-    let workoutId: string | null = null;
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-    // ALWAYS try to load from server first to ensure sync across browsers
+    // Get or create user_day for this date
     try {
-      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const workoutSetsData = await getWorkoutSetsForDay(dateStr, currentUser?.id);
+      let userDay = await getUserDayByDate(currentUser?.id || '', dateStr);
 
-      if (workoutSetsData && workoutSetsData.exercises.size > 0) {
-        workoutId = workoutSetsData.workoutId;
-        // Преобразуем данные с сервера в формат нашего приложения
-        const exercisesFromServer: ExerciseWithTrackSets[] = [];
+      if (!userDay) {
+        userDay = await createUserDay(currentUser?.id || '', dateStr);
+        logger.debug('User day created', { userDayId: userDay.id, date: dateStr });
+      }
 
-        for (const [directusExerciseId, workoutExercise] of workoutSetsData.exercises) {
-          const exerciseSets = workoutSetsData.exerciseSets.get(directusExerciseId) || [];
+      setCurrentUserDayId(userDay.id);
 
-          // Преобразуем workout_sets в trackSets
-          const trackSets: Set[] = exerciseSets.map(set => ({
-            reps: set.reps,
-            weight: set.weight
-          }));
+      // Check if there are any workout sessions for this day (new session-based structure)
+      const workoutSessions = await getWorkoutSessionsWithCount(userDay.id);
 
-          // Получаем информацию об упражнении из кэша
-          let exerciseInfo = allExercises.find(ex => String(ex.id) === directusExerciseId);
-
-          if (!exerciseInfo) {
-            // Если нет в кэше, пытаемся загрузить
-            try {
-              // Get exercise name from the exercise object in workoutExercise
-              const exerciseName = (workoutExercise as any).exercise?.name || 'Unknown Exercise';
-              exerciseInfo = {
-                id: directusExerciseId,
-                name: exerciseName,
-                category: (workoutExercise as any).exercise?.category || 'Unknown',
-                description: (workoutExercise as any).exercise?.description || ''
-              };
-            } catch (err) {
-              // Создаем минимальный объект упражнения
-              exerciseInfo = {
-                id: directusExerciseId,
-                name: 'Unknown Exercise',
-                category: 'Unknown',
-                description: ''
-              };
-            }
-          }
-
-          exercisesFromServer.push({
-            ...exerciseInfo,
-            trackSets
-          });
-        }
-
-        savedExercises = exercisesFromServer;
-
-        // Update profileStats with data loaded from server
-        recordProfileWorkout(dateStr, exercisesFromServer, currentUser?.created_at);
+      if (workoutSessions.length > 0) {
+        // If there are sessions, show DayDetailPage
+        logger.debug('Workout sessions found, showing DayDetailPage', { count: workoutSessions.length });
+        setDayDetailRefreshKey(prev => prev + 1);
+        setCurrentPage('daydetail');
+      } else {
+        // Otherwise, show ExercisesPage for new workout
+        logger.debug('No workout sessions, showing ExercisesPage');
+        setCurrentWorkoutId(null);
+        setSelectedExercises([]);
+        setExercisesWithTrackedSets(new Map());
+        setCurrentPage('exercises');
       }
     } catch (error) {
-      // Fall back to localStorage if server fails
-      savedExercises = savedWorkouts.get(dateKey) || null;
-    }
-
-    if (savedExercises && savedExercises.length > 0) {
-      // Если есть сохраненная тренировка - переходим на MyExercisesPage
-      const newTrackedSets = new Map<string, Set[]>();
-      savedExercises.forEach(ex => {
-        // Ensure ID is string for consistent storage
-        newTrackedSets.set(String(ex.id), ex.trackSets);
-      });
-      setCurrentWorkoutId(workoutId);
-      setExercisesWithTrackedSets(newTrackedSets);
-      setSelectedExercises(savedExercises.map(({ ...ex }) => ex as Exercise));
-      setCurrentPage('tracking');
-    } else {
-      // Иначе переходим на ExercisesPage для выбора упражнений
+      logger.error('Error loading user day or workout sessions', { error });
+      // Fall back to exercises page on error
       setCurrentWorkoutId(null);
       setSelectedExercises([]);
       setExercisesWithTrackedSets(new Map());
@@ -577,8 +542,6 @@ export default function App() {
 
   const handleBackFromMyExercises = () => {
     logger.warn('[PAGE] handleBackFromMyExercises called');
-    const stack = new Error().stack;
-    logger.warn('[PAGE] Stack trace', { stack });
     setIsClosing(true);
     setTimeout(() => {
       logger.warn('[PAGE] Setting currentPage to calendar');
@@ -586,6 +549,8 @@ export default function App() {
       setIsClosing(false);
       setSelectedExercises([]);
       setExercisesWithTrackedSets(new Map());
+      setCurrentWorkoutSessionId(null);
+      setCurrentWorkoutStartTime(null);
       // Восстанавливаем позицию скролла календаря после смены страницы
       setTimeout(() => {
         const calendarContainer = document.querySelector('.calendar-scroll-container');
@@ -671,7 +636,94 @@ export default function App() {
                 onSave={handleSaveTraining}
                 currentWorkoutId={currentWorkoutId}
                 onWorkoutDeleted={handleWorkoutDeleted}
+                userDayId={currentUserDayId}
+                workoutSessionId={currentWorkoutSessionId}
+                workoutStartTime={currentWorkoutStartTime}
               />
+            </div>
+
+            {/* Day Detail Page - shows workout sessions for a day */}
+            <div
+              style={{ display: currentPage === 'daydetail' ? 'flex' : 'none' }}
+              className={`w-full h-full flex-1 sm:rounded-[24px] overflow-hidden ${currentPage === 'daydetail' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
+            >
+              {currentUserDayId && selectedDate && (
+                <DayDetailPage
+                  key={dayDetailRefreshKey}
+                  userDayId={currentUserDayId}
+                  date={selectedDate}
+                  onBack={() => {
+                    setIsClosing(true);
+                    setTimeout(() => {
+                      setCurrentPage('calendar');
+                      setIsClosing(false);
+                      setCurrentUserDayId(null);
+                      // Restore calendar scroll position
+                      setTimeout(() => {
+                        const calendarContainer = document.querySelector('.calendar-scroll-container');
+                        if (calendarContainer) {
+                          calendarContainer.scrollTop = calendarScrollPosition;
+                        }
+                      }, 0);
+                    }, 300);
+                  }}
+                  onStartNewWorkout={() => {
+                    setIsClosing(true);
+                    setTimeout(() => {
+                      setCurrentPage('exercises');
+                      setIsClosing(false);
+                      setSelectedExercises([]);
+                      setExercisesWithTrackedSets(new Map());
+                      setCurrentWorkoutSessionId(null);
+                      setCurrentWorkoutStartTime(null);
+                    }, 300);
+                  }}
+                  onOpenWorkout={async (workoutSessionId: string, startedAt: string) => {
+                    try {
+                      // Load exercises for this workout session
+                      const sessionData = await getWorkoutSessionExercises(workoutSessionId);
+
+                      if (sessionData) {
+                        // Convert to ExerciseWithTrackSets format
+                        // Normalize: use directus_id as the main id (for consistency with new workouts)
+                        const exercisesToShow: ExerciseWithTrackSets[] = sessionData.exercises.map(wexercise => {
+                          const sets = sessionData.exercisesSets.get(wexercise.id) || [];
+                          const trackSets: Set[] = sets.map(set => ({
+                            reps: set.reps,
+                            weight: set.weight
+                          }));
+
+                          // Normalize: replace Supabase id with directus_id so that saveWorkout uses the correct ID
+                          return {
+                            ...wexercise.exercise,
+                            id: wexercise.exercise.directus_id, // Use directus_id as the primary id
+                            trackSets
+                          };
+                        });
+
+                        // Prepare data and navigate
+                        const newTrackedSets = new Map<string, Set[]>();
+                        exercisesToShow.forEach(ex => {
+                          newTrackedSets.set(String(ex.id), ex.trackSets);
+                        });
+                        setExercisesWithTrackedSets(newTrackedSets);
+                        setSelectedExercises(exercisesToShow);
+                        setCurrentWorkoutSessionId(workoutSessionId);
+                        setCurrentWorkoutStartTime(startedAt);
+
+                        setIsClosing(true);
+                        setTimeout(() => {
+                          setCurrentPage('tracking');
+                          setIsClosing(false);
+                        }, 300);
+                      }
+                    } catch (error) {
+                      logger.error('Failed to load workout session exercises', { workoutSessionId, error });
+                      showTelegramAlert('Ошибка загрузки тренировки');
+                    }
+                  }}
+                />
+              )}
             </div>
 
             {/* Sheet overlays */}

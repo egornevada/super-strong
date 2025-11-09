@@ -50,12 +50,30 @@ export interface UserDayExercise {
   updated_at: string;
 }
 
+export interface UserDayWorkout {
+  id: string;
+  user_id: string;
+  user_day_id: string;
+  started_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface UserDayExerciseSet {
   id: string;
-  user_day_exercise_id: string;
+  user_day_workout_exercise_id: string;
   reps: number;
   weight: number;
   set_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// Updated exercise interface to work with workouts
+export interface UserDayWorkoutExercise {
+  id: string;
+  user_day_workout_id: string;
+  exercise_id: string;
   created_at: string;
   updated_at: string;
 }
@@ -403,17 +421,127 @@ export async function deleteUserDay(userDayId: string): Promise<void> {
 }
 
 // ============================================================================
+// User Day Workouts
+// ============================================================================
+
+export async function getWorkoutSessionsForDay(userDayId: string): Promise<UserDayWorkout[]> {
+  try {
+    logger.debug('Fetching workout sessions from user_day_workouts', { userDayId });
+    const { data, error } = await supabase
+      .from('user_day_workouts')
+      .select('*')
+      .eq('user_day_id', userDayId)
+      .order('started_at', { ascending: false });
+
+    if (error) {
+      logger.error('Error fetching workout sessions (Supabase error)', { userDayId, error });
+      throw error;
+    }
+
+    logger.info('Workout sessions fetched from DB', { userDayId, count: data ? data.length : 0, sessions: data });
+    return data || [];
+  } catch (error) {
+    logger.error('Error fetching workout sessions for day', { userDayId, error });
+    throw error;
+  }
+}
+
+export async function createWorkoutSession(userId: string, userDayId: string, startedAt: string): Promise<UserDayWorkout> {
+  try {
+    logger.debug('Creating workout session', { userId, userDayId, startedAt });
+    const { data, error } = await supabase
+      .from('user_day_workouts')
+      .insert([{ user_id: userId, user_day_id: userDayId, started_at: startedAt }])
+      .select()
+      .single();
+
+    if (error) {
+      logger.error('Supabase error creating workout session', { userId, userDayId, error });
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error('Failed to create workout session - no data returned');
+    }
+
+    logger.info('Workout session created successfully in DB', { workoutSessionId: data.id, userId, userDayId, startedAt, fullData: data });
+    return data;
+  } catch (error) {
+    logger.error('Error creating workout session', { userId, userDayId, startedAt, error });
+    throw error;
+  }
+}
+
+export async function deleteWorkoutSession(workoutSessionId: string): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('user_day_workouts')
+      .delete()
+      .eq('id', workoutSessionId);
+
+    if (error) {
+      throw error;
+    }
+
+    logger.info('Workout session deleted successfully', { workoutSessionId });
+  } catch (error) {
+    logger.error('Error deleting workout session', { workoutSessionId, error });
+    throw error;
+  }
+}
+
+// ============================================================================
 // User Day Exercises
 // ============================================================================
 
+export async function getUserDayExercisesByWorkout(workoutSessionId: string): Promise<
+  Array<UserDayWorkoutExercise & { exercise: Exercise }>
+> {
+  try {
+    const { data, error } = await supabase
+      .from('user_day_workout_exercises')
+      .select('*, exercise:exercise_id(*)')
+      .eq('user_day_workout_id', workoutSessionId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    logger.error('Error fetching workout exercises', { workoutSessionId, error });
+    throw error;
+  }
+}
+
+// Legacy function for backward compatibility - gets all exercises for a day
+// This fetches exercises from all workout sessions for a given user_day
 export async function getUserDayExercisesByDay(userDayId: string): Promise<
   Array<UserDayExercise & { exercise: Exercise }>
 > {
   try {
+    // Get all workout sessions for this day first
+    const { data: workoutSessions, error: sessionsError } = await supabase
+      .from('user_day_workouts')
+      .select('id')
+      .eq('user_day_id', userDayId);
+
+    if (sessionsError) {
+      throw sessionsError;
+    }
+
+    // If no sessions, return empty array
+    if (!workoutSessions || workoutSessions.length === 0) {
+      return [];
+    }
+
+    // Get all exercises from all sessions
+    const sessionIds = workoutSessions.map(s => s.id);
     const { data, error } = await supabase
-      .from('user_day_exercises')
+      .from('user_day_workout_exercises')
       .select('*, exercise:exercise_id(*)')
-      .eq('user_day_id', userDayId)
+      .in('user_day_workout_id', sessionIds)
       .order('created_at', { ascending: true });
 
     if (error) {
@@ -427,11 +555,67 @@ export async function getUserDayExercisesByDay(userDayId: string): Promise<
   }
 }
 
-export async function createUserDayExercise(userDayId: string, exerciseId: string): Promise<UserDayExercise> {
+export async function createWorkoutExercise(workoutSessionId: string, exerciseId: string): Promise<UserDayWorkoutExercise> {
   try {
     const { data, error } = await supabase
-      .from('user_day_exercises')
-      .insert([{ user_day_id: userDayId, exercise_id: exerciseId }])
+      .from('user_day_workout_exercises')
+      .insert([{ user_day_workout_id: workoutSessionId, exercise_id: exerciseId }])
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error('Failed to create workout exercise');
+    }
+
+    logger.info('Workout exercise created successfully', { workoutExerciseId: data.id });
+    return data;
+  } catch (error) {
+    logger.error('Error creating workout exercise', { workoutSessionId, exerciseId, error });
+    throw error;
+  }
+}
+
+// Legacy function for backward compatibility - creates exercise in a new workout session
+export async function createUserDayExercise(userDayId: string, exerciseId: string): Promise<UserDayExercise> {
+  try {
+    // First, get the user_day to get user_id
+    const { data: userDay, error: userDayError } = await supabase
+      .from('user_days')
+      .select('user_id')
+      .eq('id', userDayId)
+      .single();
+
+    if (userDayError || !userDay) {
+      throw userDayError || new Error('User day not found');
+    }
+
+    // Create a new workout session for this user day if needed
+    const startedAt = new Date().toISOString();
+    const { data: workoutSession, error: sessionError } = await supabase
+      .from('user_day_workouts')
+      .insert([{
+        user_id: userDay.user_id,
+        user_day_id: userDayId,
+        started_at: startedAt
+      }])
+      .select()
+      .single();
+
+    if (sessionError || !workoutSession) {
+      throw sessionError || new Error('Failed to create workout session');
+    }
+
+    // Now create the exercise in the workout session
+    const { data, error } = await supabase
+      .from('user_day_workout_exercises')
+      .insert([{
+        user_day_workout_id: workoutSession.id,
+        exercise_id: exerciseId
+      }])
       .select()
       .single();
 
@@ -444,7 +628,7 @@ export async function createUserDayExercise(userDayId: string, exerciseId: strin
     }
 
     logger.info('User day exercise created successfully', { userDayExerciseId: data.id });
-    return data;
+    return data as UserDayExercise;
   } catch (error) {
     logger.error('Error creating user day exercise', { userDayId, exerciseId, error });
     throw error;
@@ -454,7 +638,7 @@ export async function createUserDayExercise(userDayId: string, exerciseId: strin
 export async function deleteUserDayExercise(userDayExerciseId: string): Promise<void> {
   try {
     const { error } = await supabase
-      .from('user_day_exercises')
+      .from('user_day_workout_exercises')
       .delete()
       .eq('id', userDayExerciseId);
 
@@ -476,9 +660,9 @@ export async function deleteUserDayExercise(userDayExerciseId: string): Promise<
 export async function getUserDayExerciseSets(userDayExerciseId: string): Promise<UserDayExerciseSet[]> {
   try {
     const { data, error } = await supabase
-      .from('user_day_exercise_sets')
+      .from('user_day_workout_exercise_sets')
       .select('*')
-      .eq('user_day_exercise_id', userDayExerciseId)
+      .eq('user_day_workout_exercise_id', userDayExerciseId)
       .order('set_order', { ascending: true });
 
     if (error) {
@@ -493,14 +677,14 @@ export async function getUserDayExerciseSets(userDayExerciseId: string): Promise
 }
 
 export async function createUserDayExerciseSet(payload: {
-  user_day_exercise_id: string;
+  user_day_workout_exercise_id: string;
   reps: number;
   weight: number;
   set_order: number;
 }): Promise<UserDayExerciseSet> {
   try {
     const { data, error } = await supabase
-      .from('user_day_exercise_sets')
+      .from('user_day_workout_exercise_sets')
       .insert([payload])
       .select()
       .single();
@@ -524,7 +708,7 @@ export async function createUserDayExerciseSet(payload: {
 export async function deleteUserDayExerciseSet(setId: string): Promise<void> {
   try {
     const { error } = await supabase
-      .from('user_day_exercise_sets')
+      .from('user_day_workout_exercise_sets')
       .delete()
       .eq('id', setId);
 

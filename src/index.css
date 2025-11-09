@@ -2,6 +2,7 @@
 @import './styles/fonts.css';
 @import './styles/tokens.global.css';
 @import './styles/tokens.theme.css';
+@import './styles/shadows.css';
 
 /* Tailwind CSS directives */
 @tailwind base;

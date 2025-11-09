@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Button } from '../main/Button';
 import { TextField } from '../TextField';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 
 export interface SetModalProps {
   isOpen: boolean;
@@ -184,7 +184,7 @@ export const SetModal = React.forwardRef<HTMLDivElement, SetModalProps>(
                 onClick={() => onDelete?.(setIndex)}
                 style={{ padding: '8px' }}
               >
-                <DeleteOutlineIcon style={{ fontSize: '20px' }} />
+                <DeleteOutlineRounded style={{ fontSize: '20px' }} />
               </Button>
             )}
             <Button
