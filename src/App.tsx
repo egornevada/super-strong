@@ -136,6 +136,15 @@ export default function App() {
 
               // Get sets for this workout
               try {
+                // ВАЖНО: сначала проверяем есть ли сессии в этом дне!
+                // После удаления последней сессии, user_day остается пустой
+                const sessions = await getWorkoutSessionsWithCount(workout.id);
+                if (!sessions || sessions.length === 0) {
+                  // Нет сессий в этом дне - пропускаем
+                  logger.debug('No sessions in user day during init, skipping', { userDayId: workout.id, dateKey });
+                  continue;
+                }
+
                 const setsData = await getWorkoutSetsForDay(dateStr, currentUser?.id);
                 if (setsData && setsData.exercises.size > 0) {
                   const exercises: Array<{ trackSets: Set[] }> = [];
@@ -181,6 +190,12 @@ export default function App() {
 
           // Update savedWorkouts with server data for UI display
           setSavedWorkouts(serverExercisesMap);
+
+          // Recalculate workoutDays based on actual server data
+          // This ensures calendar points are always in sync with actual workouts
+          const actualWorkoutDays = Array.from(serverExercisesMap.keys());
+          setWorkoutDays(actualWorkoutDays);
+          logger.info('Recalculated workoutDays from server', { count: actualWorkoutDays.length });
 
           // Always recalculate profile stats from server workouts (even if empty)
           // This ensures stats are synced across browsers
@@ -328,13 +343,26 @@ export default function App() {
 
       const workouts = await getWorkoutsForDate(dateStr, currentUser.id);
 
-      // Extract unique days that have workouts
+      // Extract unique days that have workouts WITH sessions
       const newDaysWithWorkouts = new Set<string>();
-      workouts.forEach((workout) => {
+
+      for (const workout of workouts) {
         const dateField = workout.date;
 
         if (!dateField) {
-          return;
+          continue;
+        }
+
+        // Check if this user_day actually has workout sessions
+        try {
+          const sessions = await getWorkoutSessionsWithCount(workout.id);
+          if (!sessions || sessions.length === 0) {
+            logger.debug('[CALENDAR] No sessions in user day, skipping', { dateKey: dateField, userDayId: workout.id });
+            continue;
+          }
+        } catch (sessionError) {
+          logger.warn('[CALENDAR] Error checking sessions, skipping day', { dateField, error: sessionError });
+          continue;
         }
 
         const parts = dateField.split('-');
@@ -344,7 +372,7 @@ export default function App() {
           const workoutYear = parseInt(parts[0], 10);
           newDaysWithWorkouts.add(`${day}-${workoutMonth}-${workoutYear}`);
         }
-      });
+      }
 
       // Accumulate workouts - merge new ones with existing ones
       setWorkoutDays((prev) => {
@@ -376,7 +404,6 @@ export default function App() {
   const [workoutDays, setWorkoutDays] = useState<string[]>([]);
   const [savedWorkouts, setSavedWorkouts] = useState<Map<string, ExerciseWithTrackSets[]>>(new Map());
   const [isClosing, setIsClosing] = useState(false);
-  const [currentWorkoutId, setCurrentWorkoutId] = useState<string | null>(null);
   const [currentUserDayId, setCurrentUserDayId] = useState<string | null>(null);
   const [dayDetailRefreshKey, setDayDetailRefreshKey] = useState(0);
   const [currentWorkoutSessionId, setCurrentWorkoutSessionId] = useState<string | null>(null);
@@ -414,7 +441,6 @@ export default function App() {
       } else {
         // Otherwise, show ExercisesPage for new workout
         logger.debug('No workout sessions, showing ExercisesPage');
-        setCurrentWorkoutId(null);
         setSelectedExercises([]);
         setExercisesWithTrackedSets(new Map());
         setCurrentPage('exercises');
@@ -422,7 +448,6 @@ export default function App() {
     } catch (error) {
       logger.error('Error loading user day or workout sessions', { error });
       // Fall back to exercises page on error
-      setCurrentWorkoutId(null);
       setSelectedExercises([]);
       setExercisesWithTrackedSets(new Map());
       setCurrentPage('exercises');
@@ -508,36 +533,120 @@ export default function App() {
     // Don't navigate away - user stays on tracking page to continue adding exercises
   };
 
-  const handleWorkoutDeleted = () => {
-    // Удаляем дату из workoutDays когда тренировка полностью удалена
-    if (selectedDate) {
-      const dateKey = `${selectedDate.day}-${selectedDate.month}-${selectedDate.year}`;
-      setWorkoutDays((prev) => prev.filter((day) => day !== dateKey));
-      logger.info('Workout deleted, removing from workoutDays', { dateKey });
+  /**
+   * Shared function to refresh all workouts and statistics after deletion
+   * Loads all workouts from server, updates calendar and stats
+   * Used by both MyExercisesPage and DayDetailPage
+   */
+  const refreshAllWorkoutsAndStats = useCallback(async () => {
+    try {
+      if (!currentUser?.id) return;
 
-      // Удаляем из savedWorkouts
-      const newSavedWorkouts = new Map(savedWorkouts);
-      newSavedWorkouts.delete(dateKey);
-      setSavedWorkouts(newSavedWorkouts);
+      const allWorkouts = await getAllWorkoutsForUser(currentUser.id);
+      const serverWorkoutsMap = new Map<string, Array<{ trackSets: Set[] }>>();
+      const serverExercisesMap = new Map<string, ExerciseWithTrackSets[]>();
 
-      // Сохраняем в localStorage
-      try {
-        const savingData: Record<string, ExerciseWithTrackSets[]> = {};
-        newSavedWorkouts.forEach((value, key) => {
-          savingData[key] = value;
-        });
-        localStorage.setItem('savedWorkouts', JSON.stringify(savingData));
-      } catch (error) {
-        logger.warn('Failed to update localStorage after workout deletion', error);
+      // Convert server workouts to the format expected by recalculateStatsFromSavedWorkouts
+      for (const workout of allWorkouts) {
+        if (!workout.id) continue;
+
+        const dateStr = workout.date;
+        const parts = dateStr.split('-');
+        if (parts.length !== 3) continue;
+
+        const day = parseInt(parts[2], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const year = parseInt(parts[0], 10);
+        const dateKey = `${day}-${month}-${year}`;
+
+        // Get sets for this workout
+        try {
+          // ВАЖНО: сначала проверяем есть ли сессии в этом дне!
+          // После удаления последней сессии, user_day остается пустой
+          const sessions = await getWorkoutSessionsWithCount(workout.id);
+          if (!sessions || sessions.length === 0) {
+            // Нет сессий в этом дне - пропускаем
+            logger.debug('No sessions in user day, skipping', { userDayId: workout.id, dateKey });
+            continue;
+          }
+
+          const setsData = await getWorkoutSetsForDay(dateStr, currentUser.id);
+          if (setsData && setsData.exercises.size > 0) {
+            const exercises: Array<{ trackSets: Set[] }> = [];
+            const exercisesWithInfo: ExerciseWithTrackSets[] = [];
+
+            for (const [directusExerciseId, workoutExercise] of setsData.exercises) {
+              const exerciseSets = setsData.exerciseSets.get(directusExerciseId) || [];
+              const trackSets = exerciseSets.map(set => ({
+                reps: set.reps,
+                weight: set.weight
+              }));
+
+              exercises.push({ trackSets });
+
+              // Get exercise info for display
+              let exerciseInfo = allExercises.find(ex => String(ex.id) === directusExerciseId);
+              if (!exerciseInfo) {
+                const exerciseName = (workoutExercise as any).exercise?.name || 'Unknown Exercise';
+                exerciseInfo = {
+                  id: directusExerciseId,
+                  name: exerciseName,
+                  category: (workoutExercise as any).exercise?.category || 'Unknown',
+                  description: (workoutExercise as any).exercise?.description || ''
+                };
+              }
+
+              exercisesWithInfo.push({
+                ...exerciseInfo,
+                trackSets
+              });
+            }
+
+            if (exercises.length > 0) {
+              serverWorkoutsMap.set(dateKey, exercises);
+              serverExercisesMap.set(dateKey, exercisesWithInfo);
+            }
+          }
+        } catch (err) {
+          // Silently fail
+        }
       }
-    }
 
-    // Переходим на ExercisesPage
-    setIsClosing(true);
-    setTimeout(() => {
-      setCurrentPage('exercises');
-      setIsClosing(false);
-    }, 300);
+      // Update UI with server data
+      setSavedWorkouts(serverExercisesMap);
+      const actualWorkoutDays = Array.from(serverExercisesMap.keys());
+      setWorkoutDays(actualWorkoutDays);
+
+      // Recalculate statistics
+      recalculateStatsFromSavedWorkouts(serverWorkoutsMap, currentUser.created_at);
+      logger.info('All workouts and stats refreshed after deletion', {
+        daysCount: actualWorkoutDays.length,
+        workoutDaysArray: actualWorkoutDays,
+        allWorkoutsCount: allWorkouts.length,
+        serverExercisesMapSize: serverExercisesMap.size
+      });
+    } catch (error) {
+      logger.error('Error refreshing workouts and stats', { error });
+    }
+  }, [currentUser?.id, allExercises]);
+
+  const handleWorkoutDeleted = async () => {
+    try {
+      logger.info('Workout deleted callback triggered', { selectedDate });
+
+      // Refresh all data from server
+      await refreshAllWorkoutsAndStats();
+
+      // Navigate to ExercisesPage
+      setIsClosing(true);
+      setTimeout(() => {
+        setCurrentPage('exercises');
+        setIsClosing(false);
+      }, 300);
+    } catch (error) {
+      logger.error('Error handling workout deletion', { error });
+      showTelegramAlert('Ошибка при удалении тренировки');
+    }
   };
 
   const handleBackFromMyExercises = () => {
@@ -634,7 +743,6 @@ export default function App() {
                 onBack={handleBackFromMyExercises}
                 onSelectMoreExercises={handleSelectMoreExercisesFromMyPage}
                 onSave={handleSaveTraining}
-                currentWorkoutId={currentWorkoutId}
                 onWorkoutDeleted={handleWorkoutDeleted}
                 userDayId={currentUserDayId}
                 workoutSessionId={currentWorkoutSessionId}
@@ -652,12 +760,19 @@ export default function App() {
                   key={dayDetailRefreshKey}
                   userDayId={currentUserDayId}
                   date={selectedDate}
+                  onWorkoutDeleted={refreshAllWorkoutsAndStats}
                   onBack={() => {
                     setIsClosing(true);
                     setTimeout(() => {
                       setCurrentPage('calendar');
                       setIsClosing(false);
                       setCurrentUserDayId(null);
+
+                      // Recalculate workoutDays from current data when returning to calendar
+                      // This ensures calendar reflects reality if workouts were deleted
+                      const currentWorkoutDays = Array.from(savedWorkouts.keys());
+                      setWorkoutDays(currentWorkoutDays);
+
                       // Restore calendar scroll position
                       setTimeout(() => {
                         const calendarContainer = document.querySelector('.calendar-scroll-container');

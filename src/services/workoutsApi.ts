@@ -391,13 +391,17 @@ export async function getWorkoutSetsForDay(date: string, userId?: string): Promi
         if (!exercise.exercise) continue;
 
         const directusId = exercise.exercise.directus_id;
+        // ВАЖНО: сохраняем информацию о упражнении (перезаписываем, т.к. информация одинаковая)
         exerciseMap.set(directusId, {
           ...exercise,
           exercise: exercise.exercise
         });
 
         const sets = await getUserDayExerciseSets(exercise.id);
-        exerciseSets.set(directusId, sets);
+        // ВАЖНО: объединяем сеты вместо перезаписи!
+        // Если упражнение выполнялось в разных сессиях, нужно сложить все сеты
+        const existingSets = exerciseSets.get(directusId) || [];
+        exerciseSets.set(directusId, [...existingSets, ...sets]);
       }
     }
 

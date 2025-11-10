@@ -190,14 +190,28 @@ export const recordProfileWorkout = (
   const store = readStore();
   const { totalSets, totalWeight } = parseSets(exercises);
 
-  if (totalSets === 0) {
+  if (totalSets === 0 && !store.workouts[workoutDate]) {
+    // Only delete if there's nothing to add and nothing existed before
     delete store.workouts[workoutDate];
-  } else {
-    store.workouts[workoutDate] = {
-      totalSets,
-      totalWeight,
-      updatedAt: new Date().toISOString(),
-    };
+  } else if (totalSets > 0) {
+    // ВАЖНО: добавляем к существующим данным за день, а не перезаписываем!
+    // Это нужно для поддержки нескольких тренировок в один день
+    const existing = store.workouts[workoutDate];
+    if (existing) {
+      // Объединяем с существующими данными
+      store.workouts[workoutDate] = {
+        totalSets: existing.totalSets + totalSets,
+        totalWeight: clampTwoDecimals(existing.totalWeight + totalWeight),
+        updatedAt: new Date().toISOString(),
+      };
+    } else {
+      // Первая тренировка в этот день
+      store.workouts[workoutDate] = {
+        totalSets,
+        totalWeight,
+        updatedAt: new Date().toISOString(),
+      };
+    }
   }
 
   writeStore(store);
