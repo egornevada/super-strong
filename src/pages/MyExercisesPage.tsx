@@ -3,7 +3,7 @@ import { HeaderWithBackButton, Button, TrackCard, type Set } from '../components
 import { type Exercise } from '../services/directusApi';
 import { useExerciseDetailSheet } from '../contexts/SheetContext';
 import { useUser } from '../contexts/UserContext';
-import { convertExerciseToApiFormat, deleteWorkout, createAndSaveWorkoutSession, updateWorkoutSessionExercises } from '../services/workoutsApi';
+import { convertExerciseToApiFormat, createAndSaveWorkoutSession, updateWorkoutSessionExercises, deleteWorkoutSessionWithExercises } from '../services/workoutsApi';
 import { logger } from '../lib/logger';
 import { showTelegramAlert } from '../lib/telegram';
 import ArrowCircleLeftRounded from '@mui/icons-material/ArrowCircleLeftRounded';
@@ -20,7 +20,6 @@ interface MyExercisesPageProps {
   onBack?: () => void;
   onSelectMoreExercises?: (exercises: ExerciseWithTrackSets[]) => void;
   onSave?: (exercises: ExerciseWithTrackSets[], date: SelectedDate) => void;
-  currentWorkoutId?: string | null;
   onWorkoutDeleted?: () => void;
   userDayId?: string | null;
   workoutSessionId?: string | null;
@@ -37,7 +36,6 @@ export function MyExercisesPage({
   onBack,
   onSelectMoreExercises,
   onSave,
-  currentWorkoutId,
   onWorkoutDeleted,
   userDayId,
   workoutSessionId,
@@ -69,18 +67,30 @@ export function MyExercisesPage({
 
     logger.info('Exercise deleted from workout', { exerciseId, remainingCount: updated.length });
 
-    // If no exercises left, delete the entire workout
+    // If no exercises left, delete the entire workout session
     if (updated.length === 0) {
       try {
-        logger.info('No exercises remaining, deleting workout', { workoutId: currentWorkoutId });
-        if (currentWorkoutId) {
-          await deleteWorkout(currentWorkoutId);
+        logger.info('No exercises remaining, deleting workout session', {
+          workoutSessionId,
+          userDayId
+        });
+
+        // If editing existing session - delete the session
+        if (workoutSessionId) {
+          await deleteWorkoutSessionWithExercises(workoutSessionId);
+          logger.info('Workout session deleted successfully', { workoutSessionId });
           onWorkoutDeleted?.();
         }
+        // If creating new workout and user removes all exercises - just go back
+        // (we haven't saved yet, so nothing to delete)
+        else {
+          logger.debug('New workout with no exercises - just going back');
+        }
+
         // Navigate back to exercise selection
         onSelectMoreExercises?.(updated);
       } catch (error) {
-        logger.error('Failed to delete workout', error);
+        logger.error('Failed to delete workout session', error);
         showTelegramAlert('Ошибка удаления тренировки');
       }
     }
@@ -312,6 +322,7 @@ export function MyExercisesPage({
                   onUpdateSet={(setIndex, reps, weight) => handleUpdateSet(index, setIndex, reps, weight)}
                   onDeleteSet={(setIndex) => handleDeleteSet(index, setIndex)}
                   onImageClick={handleExerciseImageClick}
+                  onTitleClick={handleExerciseImageClick}
                 />
               ))}
 

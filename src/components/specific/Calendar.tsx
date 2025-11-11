@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Day } from './Day';
 import { Button } from '../main/Button';
+import { DefaultStroke } from '../StatItem';
 import KeyboardArrowLeftRounded from '@mui/icons-material/KeyboardArrowLeftRounded';
 import KeyboardArrowRightRounded from '@mui/icons-material/KeyboardArrowRightRounded';
 
@@ -166,15 +167,14 @@ export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
             <h3 className="text-fg-1 mb-3 text-heading-md">Статистика за месяц</h3>
 
             <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-fg-3">Подняли за {monthNames[displayMonth].toLowerCase()}</span>
-                <span className="text-fg-1 font-medium">{numberFormatter.format(monthStats.totalWeight || 0)} кг</span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-fg-3">Занимались дней</span>
-                <span className="text-fg-1 font-medium">{monthStats.totalSets || 0}</span>
-              </div>
+              <DefaultStroke
+                label={`Подняли за ${monthNames[displayMonth].toLowerCase()}`}
+                value={`${numberFormatter.format(monthStats.totalWeight || 0)} кг`}
+              />
+              <DefaultStroke
+                label="Занимались дней"
+                value={monthStats.totalSets || 0}
+              />
             </div>
           </div>
         )}

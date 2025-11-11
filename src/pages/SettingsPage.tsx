@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { PageLayout } from '../components/PageLayout'
+import { PageLayout, DefaultStroke } from '../components'
 import { useTelegram } from '../hooks/useTelegram'
 import { deleteAccountAndClose, closeTelegramApp, showTelegramConfirm } from '../lib/telegram'
 import { userActions, logger } from '../lib/logger'
@@ -56,13 +56,11 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
         <div>
           <h2 className="text-fg-1 font-semibold">О приложении</h2>
           <div className="space-y-0">
-            <div className="flex justify-between items-center py-4 border-b border-stroke-1">
-              <span className="text-fg-3">Версия</span>
-              <span className="text-fg-1 font-medium">Pre-Classic</span>
+            <div className="py-4 border-b border-stroke-1">
+              <DefaultStroke label="Версия" value="Pre-Classic" />
             </div>
-            <div className="flex justify-between items-center py-4 border-b border-stroke-1">
-              <span className="text-fg-3">Сборка</span>
-              <span className="text-fg-1 font-medium">04.11.2025</span>
+            <div className="py-4 border-b border-stroke-1">
+              <DefaultStroke label="Сборка" value="10.11.2025" />
             </div>
           </div>
         </div>

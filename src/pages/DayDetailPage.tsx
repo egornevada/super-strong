@@ -4,7 +4,6 @@ import { logger } from '../lib/logger'
 import { getWorkoutSessionsWithCount } from '../services/workoutsApi'
 import { useOptimisticDeleteWorkout } from '../hooks/useOptimisticDeleteWorkout'
 import AddRounded from '@mui/icons-material/AddRounded'
-import { useUser } from '../contexts/UserContext'
 
 interface SelectedDate {
   day: number
@@ -29,7 +28,6 @@ export function DayDetailPage({
   onStartNewWorkout,
   onOpenWorkout
 }: DayDetailPageProps) {
-  const { currentUser } = useUser()
   const [sessions, setSessions] = useState<WorkoutSession[]>([])
   const [loading, setLoading] = useState(true)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
@@ -52,14 +50,14 @@ export function DayDetailPage({
         const updatedSessions = await getWorkoutSessionsWithCount(userDayId)
         setSessions(updatedSessions)
         logger.info('Sessions reloaded on DayDetailPage', { count: updatedSessions.length })
-      } catch (error) {
+      } catch (error: unknown) {
         logger.error('Failed to reload sessions on DayDetailPage', { error })
       }
 
       // 2. Уведомляем родителя для обновления календаря и статистики
       onWorkoutDeleted?.()
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       logger.error('Delete error:', error)
     }
   })
@@ -183,7 +181,7 @@ export function DayDetailPage({
           </div>
         ) : (
           <div className="space-y-3">
-            {optimisticSessions.map(session => (
+            {optimisticSessions.map((session: WorkoutSession) => (
               <SessionCard
                 key={session.id}
                 session={session}

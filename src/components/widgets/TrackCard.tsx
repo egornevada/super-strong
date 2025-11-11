@@ -18,11 +18,12 @@ export interface TrackCardProps {
   onUpdateSet?: (index: number, reps: number, weight: number) => void;
   onDeleteSet?: (index: number) => void;
   onImageClick?: (id: string) => void;
+  onTitleClick?: (id: string) => void;
 }
 
 export const TrackCard = React.forwardRef<HTMLDivElement, TrackCardProps>(
   (
-    { id = '', name, image, subtitle, sets = [], onAddSet, onUpdateSet, onDeleteSet, onImageClick },
+    { id = '', name, image, subtitle, sets = [], onAddSet, onUpdateSet, onDeleteSet, onImageClick, onTitleClick },
     ref
   ) => {
     const [isModalOpen, setIsModalOpen] = React.useState(false);
@@ -132,8 +133,10 @@ export const TrackCard = React.forwardRef<HTMLDivElement, TrackCardProps>(
                   lineHeight: '16px',
                   letterSpacing: '-3%',
                   margin: 0,
-                  marginBottom: subtitle ? '2px' : 0
+                  marginBottom: subtitle ? '2px' : 0,
+                  cursor: onTitleClick ? 'pointer' : 'default'
                 }}
+                onClick={() => onTitleClick?.(id)}
               >
                 {name}
               </h3>

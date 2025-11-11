@@ -474,6 +474,41 @@ export async function createWorkoutSession(userId: string, userDayId: string, st
 
 export async function deleteWorkoutSession(workoutSessionId: string): Promise<void> {
   try {
+    // First, delete all sets for exercises in this workout session
+    // Need to find all exercises first
+    const { data: exercises, error: exercisesError } = await supabase
+      .from('user_day_workout_exercises')
+      .select('id')
+      .eq('user_day_workout_id', workoutSessionId);
+
+    if (exercisesError) {
+      throw exercisesError;
+    }
+
+    // Delete all sets for these exercises
+    if (exercises && exercises.length > 0) {
+      const exerciseIds = exercises.map(e => e.id);
+      const { error: setsError } = await supabase
+        .from('user_day_workout_exercise_sets')
+        .delete()
+        .in('user_day_workout_exercise_id', exerciseIds);
+
+      if (setsError) {
+        throw setsError;
+      }
+
+      // Delete all exercises for this workout
+      const { error: deleteExercisesError } = await supabase
+        .from('user_day_workout_exercises')
+        .delete()
+        .eq('user_day_workout_id', workoutSessionId);
+
+      if (deleteExercisesError) {
+        throw deleteExercisesError;
+      }
+    }
+
+    // Finally, delete the workout session itself
     const { error } = await supabase
       .from('user_day_workouts')
       .delete()

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { PageLayout } from '../components/PageLayout';
+import { PageLayout, DefaultStroke } from '../components';
 import { useTelegram } from '../hooks/useTelegram';
 import { useUser } from '../contexts/UserContext';
 import { useProfileSheet } from '../contexts/ProfileSheetContext';
@@ -107,25 +107,18 @@ export function ProfilePage({ onClose }: ProfilePageProps) {
     <PageLayout title="Профиль" onClose={onClose}>
       <div className="mx-4">
         {/* Account section */}
-        <div className="pb-4 border-b border-stroke-1">
-          <div className="flex justify-between items-center">
-            <span className="text-fg-3">Аккаунт</span>
-            <span className="text-fg-1 font-medium truncate max-w-[60%]" title={accountLabel}>
-              {accountLabel}
-            </span>
-          </div>
+        <div className="py-4 border-b border-stroke-1">
+          <DefaultStroke label="Аккаунт" value={accountLabel} />
         </div>
 
         {/* Stats section */}
         <div className="space-y-0">
-          <div className="flex justify-between items-center py-4 border-b border-stroke-1">
-            <span className="text-fg-3">Пользуетесь Super Strong</span>
-            <span className="text-fg-1 font-medium">{daysUsingAppLabel}</span>
+          <div className="py-4 border-b border-stroke-1">
+            <DefaultStroke label="Пользуетесь Super Strong" value={daysUsingAppLabel} />
           </div>
 
-          <div className="flex justify-between items-center py-4 border-b border-stroke-1">
-            <span className="text-fg-3">Занимались дней</span>
-            <span className="text-fg-1 font-medium">{workoutDaysLabel}</span>
+          <div className="py-4 border-b border-stroke-1">
+            <DefaultStroke label="Занимались дней" value={workoutDaysLabel} />
           </div>
         </div>
 
