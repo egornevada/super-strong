@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { Button, AlertDialog } from '../components'
+import { Button, AlertDialog, HeaderWithBackButton, SessionCard, type WorkoutSession } from '../components'
 import { logger } from '../lib/logger'
-import { getWorkoutSessionsWithCount, deleteWorkoutSessionWithExercises } from '../services/workoutsApi'
+import { getWorkoutSessionsWithCount } from '../services/workoutsApi'
+import { useOptimisticDeleteWorkout } from '../hooks/useOptimisticDeleteWorkout'
 import AddRounded from '@mui/icons-material/AddRounded'
-import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
 import { useUser } from '../contexts/UserContext'
 
 interface SelectedDate {
@@ -12,23 +12,19 @@ interface SelectedDate {
   year: number
 }
 
-interface WorkoutSession {
-  id: string
-  started_at: string
-  exerciseCount: number
-}
-
 interface DayDetailPageProps {
   userDayId: string
   date: SelectedDate
   onBack?: () => void
   onStartNewWorkout?: () => void
   onOpenWorkout?: (workoutSessionId: string, startedAt: string) => void
+  onWorkoutDeleted?: () => void
 }
 
 export function DayDetailPage({
   userDayId,
   date,
+  onWorkoutDeleted,
   onBack,
   onStartNewWorkout,
   onOpenWorkout
@@ -38,10 +34,37 @@ export function DayDetailPage({
   const [loading, setLoading] = useState(true)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [selectedSessionForDelete, setSelectedSessionForDelete] = useState<WorkoutSession | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
   const [sessionMenuOpen, setSessionMenuOpen] = useState<string | null>(null)
 
-  const monthNames = [
+  // Hook для оптимистического удаления
+  // Источник: https://react.dev/reference/react/useOptimistic
+  const {
+    optimisticSessions,
+    deleteWorkout,
+    isDeleting
+  } = useOptimisticDeleteWorkout({
+    sessions,
+    onSuccess: async () => {
+      logger.info('Workout deleted successfully, calling parent callback')
+
+      // 1. Перезагружаем sessions на этой странице
+      try {
+        const updatedSessions = await getWorkoutSessionsWithCount(userDayId)
+        setSessions(updatedSessions)
+        logger.info('Sessions reloaded on DayDetailPage', { count: updatedSessions.length })
+      } catch (error) {
+        logger.error('Failed to reload sessions on DayDetailPage', { error })
+      }
+
+      // 2. Уведомляем родителя для обновления календаря и статистики
+      onWorkoutDeleted?.()
+    },
+    onError: (error) => {
+      logger.error('Delete error:', error)
+    }
+  })
+
+  const monthNamesShort = [
     'Янв.',
     'Фев.',
     'Мар.',
@@ -56,7 +79,23 @@ export function DayDetailPage({
     'Дек.'
   ]
 
-  const dateStr = `${date.day} ${monthNames[date.month]} ${date.year}`
+  const monthNamesFull = [
+    'Января',
+    'Февраля',
+    'Марта',
+    'Апреля',
+    'Мая',
+    'Июня',
+    'Июля',
+    'Августа',
+    'Сентября',
+    'Октября',
+    'Ноября',
+    'Декабря'
+  ]
+
+  const dateStr = `${date.day} ${monthNamesFull[date.month]} ${date.year}`
+  const dateLabel = `${date.day} ${monthNamesShort[date.month]}`
 
   // Load workout sessions
   useEffect(() => {
@@ -100,111 +139,62 @@ export function DayDetailPage({
     if (!selectedSessionForDelete) return
 
     try {
-      setIsDeleting(true)
-      logger.debug('Deleting workout session', { sessionId: selectedSessionForDelete.id })
+      logger.debug('User confirmed deletion', { sessionId: selectedSessionForDelete.id })
 
-      await deleteWorkoutSessionWithExercises(selectedSessionForDelete.id)
+      // Вызываем hook который:
+      // 1. Обновляет UI СРАЗУ (оптимистично)
+      // 2. Отправляет API запрос в ФОНЕ
+      // 3. На успех - вызывает onSuccess callback
+      // Источник: https://react.dev/reference/react/useOptimistic
+      await deleteWorkout(selectedSessionForDelete.id)
 
-      // Remove from list
-      setSessions(prev => prev.filter(s => s.id !== selectedSessionForDelete.id))
-
-      logger.info('Workout session deleted successfully', { sessionId: selectedSessionForDelete.id })
+      logger.info('Deletion initiated', { sessionId: selectedSessionForDelete.id })
       setDeleteModalOpen(false)
       setSelectedSessionForDelete(null)
     } catch (error) {
-      logger.error('Failed to delete workout session', { sessionId: selectedSessionForDelete.id, error })
-    } finally {
-      setIsDeleting(false)
+      logger.error('Failed to initiate deletion', { sessionId: selectedSessionForDelete.id, error })
     }
   }
 
   return (
     <div className="w-full h-full flex flex-col bg-bg-1">
       {/* Header */}
-      <div className="bg-bg-1 px-4 py-4 border-b border-stroke-1">
-        <div className="flex items-center justify-between mb-3">
-          <button
-            onClick={onBack}
-            className="text-fg-1 hover:opacity-70 transition-opacity"
-            aria-label="Go back"
-          >
-            ← Назад
-          </button>
-          <div className="flex items-center gap-2 bg-bg-2 px-4 py-2 rounded-full">
-            <span className="text-lg">📅</span>
-            <span className="text-fg-1 text-sm font-medium">{dateStr}</span>
-          </div>
-        </div>
-
-        {/* Logo and title */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-bg-brand rounded-full flex items-center justify-center">
-            <span className="text-lg">💪</span>
-          </div>
-          <h1 className="text-fg-1 text-heading-md">Super Strong</h1>
-        </div>
+      <div className="bg-bg-1">
+        <HeaderWithBackButton
+          backButtonLabel={dateLabel}
+          onBack={onBack}
+        />
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-        <h2 className="text-fg-1 text-heading-md mb-4">{dateStr}</h2>
+      <div className="flex-1 overflow-y-auto px-3 py-3">
+        {!loading && optimisticSessions.length > 0 && (
+          <h2 className="text-fg-1 text-heading-md mb-4">{dateStr}</h2>
+        )}
 
         {loading ? (
           <div className="text-center py-8">
             <p className="text-fg-2">Загрузка тренировок...</p>
           </div>
-        ) : sessions.length === 0 ? (
+        ) : optimisticSessions.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-fg-1 text-lg font-semibold mb-2">Тренировок не найдено</p>
             <p className="text-fg-2 text-sm">Нажми "Новая тренировка" чтобы начать</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {sessions.map(session => (
-              <div
+            {optimisticSessions.map(session => (
+              <SessionCard
                 key={session.id}
-                onClick={() => onOpenWorkout?.(session.id, session.started_at)}
-                className="bg-bg-2 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity"
-                style={{ boxShadow: 'var(--shadow-card)' }}
-              >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-lg">🏋️</span>
-                    <h3 className="text-fg-1 font-medium">
-                      Тренировка в {formatTime(session.started_at)}
-                    </h3>
-                  </div>
-                  <p className="text-fg-3 text-sm">
-                    Упражнений: {session.exerciseCount}
-                  </p>
-                </div>
-
-                {/* Menu button */}
-                <div className="relative ml-2" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    onClick={() => setSessionMenuOpen(sessionMenuOpen === session.id ? null : session.id)}
-                    className="p-2 hover:opacity-70 transition-opacity"
-                    aria-label="Session menu"
-                  >
-                    <MoreVertRounded style={{ fontSize: 20 }} />
-                  </button>
-
-                  {/* Menu dropdown */}
-                  {sessionMenuOpen === session.id && (
-                    <div className="absolute top-full right-0 mt-1 bg-bg-2 border border-stroke-1 rounded-lg shadow-lg z-10 min-w-48">
-                      <button
-                        onClick={() => {
-                          setSessionMenuOpen(null)
-                          handleDeleteClick(session)
-                        }}
-                        className="w-full text-left px-4 py-2 text-fg-error hover:bg-bg-3 transition-colors first:rounded-t-lg text-sm"
-                      >
-                        Удалить тренировку
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
+                session={session}
+                isMenuOpen={sessionMenuOpen === session.id}
+                onMenuToggle={() => setSessionMenuOpen(sessionMenuOpen === session.id ? null : session.id)}
+                onOpen={onOpenWorkout || (() => {})}
+                onDelete={() => {
+                  setSessionMenuOpen(null)
+                  handleDeleteClick(session)
+                }}
+              />
             ))}
           </div>
         )}
@@ -214,12 +204,13 @@ export function DayDetailPage({
       </div>
 
       {/* New workout button */}
-      <div className="bg-bg-1 px-4 py-4">
+      <div className="bg-bg-1">
         <Button
           priority="secondary"
           tone="default"
           size="md"
-          className="w-full"
+          className="w-full rounded-none pt-4 pb-6"
+          style={{ borderRadius: '0', height: '64px' }}
           leftIcon={<AddRounded />}
           onClick={onStartNewWorkout}
         >
