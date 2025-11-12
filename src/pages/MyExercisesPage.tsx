@@ -53,7 +53,21 @@ export function MyExercisesPage({
   const { openExerciseDetail } = useExerciseDetailSheet();
   const [exercisesWithSets, setExercisesWithSets] = useState<ExerciseWithTrackSets[]>(selectedExercises);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingWithDelay, setIsLoadingWithDelay] = useState(false);
   const savingRef = React.useRef(false);
+
+  // Handle loader delay: show loader for 1 second after saving completes
+  useEffect(() => {
+    if (isSaving) {
+      setIsLoadingWithDelay(true);
+    } else if (isLoadingWithDelay) {
+      // Wait 1 second before hiding loader
+      const timer = setTimeout(() => {
+        setIsLoadingWithDelay(false);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [isSaving, isLoadingWithDelay]);
 
   useEffect(() => {
     logger.info('[TRACKING] useEffect: selectedExercises changed', { count: selectedExercises?.length });
@@ -289,6 +303,7 @@ export function MyExercisesPage({
         <HeaderWithBackButton
           backButtonLabel={`${selectedDate.day} ${monthNames[selectedDate.month]}`}
           onBack={handleBackToCalendar}
+          isLoading={isLoadingWithDelay}
         />
       </div>
 
@@ -325,13 +340,6 @@ export function MyExercisesPage({
                   onTitleClick={handleExerciseImageClick}
                 />
               ))}
-
-              {/* Auto-save indicator */}
-              {isSaving && (
-                <div className="mt-4 text-center">
-                  <p className="text-fg-2 text-sm">Сохраняется...</p>
-                </div>
-              )}
 
               {/* Bottom padding */}
               <div className="h-6" />

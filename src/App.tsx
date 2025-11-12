@@ -13,7 +13,7 @@ import { CalendarPage } from './pages/CalendarPage';
 import { MyExercisesPage } from './pages/MyExercisesPage';
 import { DayDetailPage } from './pages/DayDetailPage';
 import { type Exercise } from './services/directusApi';
-import { type Set, UsernameModal } from './components';
+import { type Set, UsernameModal, LoadingScreen } from './components';
 import { ExerciseDetailSheetRenderer } from './components/SheetRenderer';
 import { ProfileSheetRenderer } from './components/ProfileSheetRenderer';
 import { SettingsSheetRenderer } from './components/SettingsSheetRenderer';
@@ -51,6 +51,7 @@ export default function App() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLoadingWorkouts, setIsLoadingWorkouts] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [currentLoadingStep, setCurrentLoadingStep] = useState('Загружаем данные пользователя');
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
   const initializationAttempt = useRef(0);
 
@@ -75,6 +76,7 @@ export default function App() {
 
         setIsLoadingWorkouts(true);
         setLoadingProgress(10);
+        setCurrentLoadingStep('Загружаем данные пользователя');
 
         // Restore saved workouts from localStorage
         try {
@@ -91,23 +93,26 @@ export default function App() {
           // Silently fail
         }
 
-        setLoadingProgress(20);
+        setLoadingProgress(25);
+        setCurrentLoadingStep('Загружаем упражнения');
 
         // Load exercises cache
         const exercisesData = await fetchExercises();
         setAllExercises(exercisesData);
-        setLoadingProgress(30);
+        setLoadingProgress(40);
 
         // Sync exercises from Directus to Supabase
         if (isOnline()) {
           try {
+            setCurrentLoadingStep('Синхронизируем упражнения');
             await syncExercisesFromDirectus();
           } catch (error) {
             // Continue anyway - exercises are still available from Directus
           }
         }
 
-        setLoadingProgress(40);
+        setLoadingProgress(50);
+        setCurrentLoadingStep('Загружаем тренировки');
 
         if (!isOnline()) {
           setIsLoadingWorkouts(false);
@@ -189,6 +194,7 @@ export default function App() {
 
         // Sync pending requests with timeout (don't block if offline or slow)
         try {
+          setCurrentLoadingStep('Синхронизируем данные');
           await Promise.race([
             syncPendingRequests(),
             new Promise((_, reject) =>
@@ -199,7 +205,8 @@ export default function App() {
           // Continue anyway - pending requests will sync later
         }
 
-        setLoadingProgress(85);
+        setLoadingProgress(90);
+        setCurrentLoadingStep('Инициализируем приложение');
 
         // Prefetch adjacent months in the background (after showing UI)
         // This happens AFTER app is rendered, so doesn't block initial load
@@ -234,11 +241,9 @@ export default function App() {
 
         setLoadingProgress(100);
         setIsLoadingWorkouts(false);
-        setLoadingProgress(0);
       } catch (error) {
         logger.error('Initialization error', { error });
         setIsLoadingWorkouts(false);
-        setLoadingProgress(0);
       }
     };
 
@@ -869,21 +874,12 @@ export default function App() {
             <SettingsSheetRenderer />
           </>
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="flex flex-col items-center gap-6 px-6">
-              <p className="text-fg-3 text-sm">Загрузка приложения...</p>
-
-              {/* Progress bar */}
-              <div className="w-full max-w-xs h-2 bg-bg-2 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-brand-500 to-brand-400 rounded-full transition-all duration-300 ease-out"
-                  style={{ width: `${loadingProgress}%` }}
-                />
-              </div>
-
-              <p className="text-fg-2 text-xs">{loadingProgress}%</p>
-            </div>
-          </div>
+          <LoadingScreen
+            progress={loadingProgress}
+            currentStep={currentLoadingStep}
+            totalWeight={0}
+            totalDays={0}
+          />
         )}
       </div>
 

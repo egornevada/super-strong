@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Day } from './Day';
 import { Button } from '../main/Button';
+import { Weekdays } from './Weekdays';
 import { DefaultStroke } from '../StatItem';
 import KeyboardArrowLeftRounded from '@mui/icons-material/KeyboardArrowLeftRounded';
 import KeyboardArrowRightRounded from '@mui/icons-material/KeyboardArrowRightRounded';
@@ -137,8 +138,8 @@ export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
           </div>
           </div>
 
-          
-        
+          {/* Weekdays header */}
+          <Weekdays />
 
           {/* Calendar grid */}
           <div className="grid grid-cols-7 gap-0" style={{ boxShadow: 'inset 0 1px 0 0 var(--stroke-1)' }}>

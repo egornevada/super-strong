@@ -1,0 +1,54 @@
+/* Two-arc rotating loader */
+.loader-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-1);
+  border-radius: 8px;
+}
+
+.loader-svg {
+  animation: spin-loader 1.5s linear infinite;
+  will-change: transform;
+}
+
+.loader-arc-active {
+  animation: spin-arc 1.5s linear infinite;
+  transform-origin: 50% 50%;
+}
+
+@keyframes spin-loader {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spin-arc {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.inline-loader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  animation: fadeIn 0.3s ease-in-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

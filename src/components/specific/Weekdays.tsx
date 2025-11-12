@@ -5,12 +5,11 @@ export interface WeekdaysProps {
 }
 
 export const Weekdays = React.forwardRef<HTMLDivElement, WeekdaysProps>(
-  ({ weekDays = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'] }, ref) => {
+  ({ weekDays = ['П', 'В', 'С', 'Ч', 'П', 'С', 'В'] }, ref) => {
     return (
       <div
         ref={ref}
         className="w-full bg-bg-1"
-        style={{ borderBottom: '1px solid var(--stroke-1)' }}
       >
         <div className="grid grid-cols-7 gap-0">
           {weekDays.map((day) => (

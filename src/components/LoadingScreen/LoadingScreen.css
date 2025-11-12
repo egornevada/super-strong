@@ -1,0 +1,86 @@
+.loading-screen {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-1);
+}
+
+/*
+  HEADER С ЛОГОТИПОМ И ЛОАДЕРОМ
+  - Высота 72px (без border-bottom)
+  - Фон как основной header
+  - Логотип 106x44, лоадер перекрывает его
+*/
+.loading-header {
+  height: 72px;                   /* высота header 72px */
+  background: var(--bg-1);        /* фон как основной header */
+  display: flex;                  /* flex layout */
+  align-items: center;            /* центр по вертикали */
+  padding: 0 12px;                /* отступ слева/справа */
+  box-sizing: border-box;         /* padding входит в размер */
+  position: relative;             /* для абсолютного позиционирования лоадера */
+  /* БЕЗ border-bottom - stroke не нужен */
+}
+
+/*
+  КОНТЕЙНЕР СОДЕРЖИМОГО HEADER
+  - Только логотип слева
+*/
+.loading-header-content {
+  width: 100%;                    /* полная ширина */
+  height: 100%;                   /* полная высота */
+  display: flex;                  /* flex layout */
+  align-items: center;            /* центр по вертикали */
+  justify-content: flex-start;    /* логотип слева */
+}
+
+/*
+  ЛОГОТИП (106x44)
+  - Фиксированный размер 106x44px
+  - Отображается слева
+*/
+.loading-logo {
+  width: 106px;                   /* ширина 106px */
+  height: 44px;                   /* высота 44px */
+  object-fit: contain;            /* содержимое не растягивается */
+}
+
+/*
+  КОНТЕЙНЕР ЛОАДЕРА (ПЕРЕКРЫВАЕТ ЛОГОТИП)
+  - Позиция: слева от конца логотипа минус 1px перекрытие
+  - Размер: 46x46px
+  - Формула: padding(12px) + logo_width(106px) - overlap(1px) - loader_width(46px) = 71px
+*/
+.loading-logo-container {
+  position: absolute;             /* абсолютное позиционирование */
+  left: 12px;                     /* 12 + 106 - 1 - 46 = 71px */
+  top: 50%;                       /* центр по вертикали */
+  transform: translateY(-50%);    /* выравнивание по центру */
+  width: 46px;                    /* ширина 46px */
+  height: 46px;                   /* высота 46px */
+  display: flex;                  /* для центрирования содержимого */
+  align-items: center;            /* центр по вертикали */
+  justify-content: center;        /* центр по горизонтали */
+  z-index: 10;                    /* над логотипом */
+}
+
+/* Skeleton area - contains LoadingScreenSkeleton and stats overlay */
+.loading-skeleton-container {
+  flex: 1;
+  overflow: hidden;
+  background: white;
+  position: relative; /* For absolute positioning of stats */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Stats section - copied from Calendar component styling */
+.loading-stats {
+  background: var(--bg-2);
+  padding: 16px 12px 24px 12px; /* px-3 pt-4 pb-6 */
+  border-radius: 16px 16px 0 0; /* rounded-t-[16px] */
+  box-sizing: border-box;
+  min-height: 132px;
+  flex-shrink: 0;
+}

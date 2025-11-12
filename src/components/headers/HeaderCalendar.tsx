@@ -1,14 +1,16 @@
 import * as React from 'react';
+import { Loader } from '../loaders/Loader';
 import logoSvg from '../../assets/icons/Logo.svg';
 
 export interface HeaderProps {
   logoSrc?: string;
   title?: string;
   rightSlot?: React.ReactNode;
+  isLoading?: boolean;
 }
 
 export const Header = React.forwardRef<HTMLDivElement, HeaderProps>(
-  ({ logoSrc = logoSvg, title, rightSlot }, ref) => {
+  ({ logoSrc = logoSvg, title, rightSlot, isLoading = false }, ref) => {
     return (
       <div
         ref={ref}
@@ -32,11 +34,30 @@ export const Header = React.forwardRef<HTMLDivElement, HeaderProps>(
               {title}
             </h1>
           ) : (
-            <img
-              src={logoSrc}
-              alt="Logo"
-              style={{ width: '106px', height: '44px', objectFit: 'contain' }}
-            />
+            /* Logo with overlay loader */
+            <div className="relative" style={{ width: '106px', height: '44px' }}>
+              {/* Logo text - always visible */}
+              <img
+                src={logoSrc}
+                alt="Logo"
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              />
+
+              {/* Loader overlay - shows during loading, positioned left */}
+              {isLoading && (
+                <div
+                  className="absolute flex items-center justify-center"
+                  style={{
+                    transition: 'opacity 0.2s',
+                    left: '-1px',
+                    top: '50%',
+                    transform: 'translateY(-50%)'
+                  }}
+                >
+                  <Loader size="md" />
+                </div>
+              )}
+            </div>
           )}
 
           {/* Right slot (buttons) */}
