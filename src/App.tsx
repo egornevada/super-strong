@@ -5,7 +5,7 @@ import { useUser } from './contexts/UserContext';
 import { syncPendingRequests, isOnline } from './lib/api';
 import { logger } from './lib/logger';
 import { showTelegramAlert } from './lib/telegram';
-import { getWorkoutsForDate, getWorkoutSetsForDay, deleteWorkout, getWorkoutSessionsWithCount, getWorkoutSessionExercises } from './services/workoutsApi';
+import { getWorkoutsForDate, getWorkoutSetsForDay, deleteWorkout, getAllWorkoutsForUser, getWorkoutSessionsWithCount, getWorkoutSessionExercises } from './services/workoutsApi';
 import { fetchExercises } from './services/directusApi';
 import { syncExercisesFromDirectus } from './services/exerciseSyncService';
 import { ExercisesPage } from './pages/ExercisesPage';
