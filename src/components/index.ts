@@ -46,3 +46,7 @@ export type { } from './loaders/Loader';
 export { LoadingScreen } from './LoadingScreen/LoadingScreen';
 export { LoadingScreenSkeleton } from './LoadingScreen/LoadingScreenSkeleton';
 export type { } from './LoadingScreen/LoadingScreen';
+
+// Steps Slider
+export { StepsSlider } from './StepsSlider/StepsSlider';
+export type { StepsSliderProps } from './StepsSlider/StepsSlider';

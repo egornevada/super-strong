@@ -3,6 +3,15 @@ import { logger } from '../lib/logger';
 
 const DIRECTUS_URL = import.meta.env.VITE_DIRECTUS_URL || "http://localhost:8055";
 
+export interface Step {
+  image?: {
+    url: string;
+    alternativeText?: string;
+  };
+  title?: string;
+  description?: string;
+}
+
 export interface Exercise {
   id: string;
   name: string;
@@ -14,6 +23,7 @@ export interface Exercise {
   description?: string;
   difficulty?: string;
   muscleGroups?: string[];
+  steps?: Step[];
 }
 
 interface DirectusExercise {
@@ -159,7 +169,7 @@ export async function fetchCategories(): Promise<string[]> {
 export async function fetchExerciseById(id: string): Promise<Exercise> {
   try {
     const response = await api.get<any>(
-      `/items/exercises/${id}?fields=id,name,description,category.id,category.name`
+      `/items/exercises/${id}?fields=id,name,description,category.id,category.name,step_1_image,step_1_title,step_1_description,step_2_image,step_2_title,step_2_description,step_3_image,step_3_title,step_3_description,step_4_image,step_4_title,step_4_description,step_5_image,step_5_title,step_5_description`
     );
 
     // Directus returns { data: {...} } for single item GET, or {...} directly
@@ -169,11 +179,31 @@ export async function fetchExerciseById(id: string): Promise<Exercise> {
       throw new Error(`Exercise with id ${id} not found`);
     }
 
+    // Собираем шаги из полей step_N_image, step_N_title, step_N_description
+    const steps: Step[] = [];
+    for (let i = 1; i <= 5; i++) {
+      const imageField = `step_${i}_image`;
+      const titleField = `step_${i}_title`;
+      const descField = `step_${i}_description`;
+
+      if (data[imageField]) {
+        steps.push({
+          image: {
+            url: `${DIRECTUS_URL}/assets/${data[imageField].id}`,
+            alternativeText: data[imageField].title || `Step ${i}`,
+          },
+          title: data[titleField] || `Шаг ${i}`,
+          description: data[descField] || "",
+        });
+      }
+    }
+
     return {
       id: String(data.id),
       name: data.name || "",
       category: data.category?.name || "Без категории",
       description: data.description || "",
+      steps: steps.length > 0 ? steps : undefined,
     };
   } catch (error) {
     logger.error("Failed to fetch exercise by ID from Directus:", error);

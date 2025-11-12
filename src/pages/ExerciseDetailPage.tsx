@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { PageLayout } from '../components/PageLayout'
 import { AlertDialog, Button } from '../components'
+import { StepsSlider } from '../components/StepsSlider/StepsSlider'
 import { fetchExerciseById, type Exercise } from '../services/directusApi'
 import { useExerciseDetailSheet } from '../contexts/SheetContext'
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded'
@@ -72,8 +73,13 @@ export function ExerciseDetailPage({
     <PageLayout title={exercise.name} onClose={onClose}>
       {/* Exercise name as heading */}
 
-      {/* Image */}
-      {exercise.image && (
+      {/* Steps slider - if steps are available */}
+      {exercise.steps && exercise.steps.length > 0 ? (
+        <div className="mb-6">
+          <StepsSlider steps={exercise.steps} exerciseName={exercise.name} />
+        </div>
+      ) : exercise.image ? (
+        /* Fallback to regular image if no steps */
         <div className="mb-6 rounded-lg overflow-hidden bg-bg-2 aspect-video">
           <img
             src={exercise.image.url}
@@ -81,7 +87,7 @@ export function ExerciseDetailPage({
             className="w-full h-full object-cover"
           />
         </div>
-      )}
+      ) : null}
 
       {/* Info sections */}
       <div className="space-y-4">

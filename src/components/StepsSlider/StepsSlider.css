@@ -1,0 +1,150 @@
+.steps-slider {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Контейнер для слайдера с изображением */
+.steps-slider-container {
+  width: 100%;
+  background: white;
+  border-radius: 24px;
+  overflow: hidden;
+  aspect-ratio: 1 / 1;
+  cursor: grab;
+  user-select: none;
+  box-shadow: var(--shadow-card);
+}
+
+.steps-slider-container:active {
+  cursor: grabbing;
+}
+
+/* Изображение шага */
+.steps-slider-image-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-2);
+}
+
+.steps-slider-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Анимация для следующего шага (слайд справа) */
+.steps-slider-image-wrapper.slide-next {
+  animation: slideFromRight 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.steps-slider-image-wrapper.slide-prev {
+  animation: slideFromLeft 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Контент шага (название и описание) */
+.steps-slider-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.steps-slider-content.slide-next {
+  animation: slideContentFromRight 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.steps-slider-content.slide-prev {
+  animation: slideContentFromLeft 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideContentFromRight {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideContentFromLeft {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.steps-slider-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg-2);
+  margin: 0;
+  line-height: 24px;
+  letter-spacing: -0.04em;
+}
+
+.steps-slider-description {
+  font-size: 12px;
+  color: var(--fg-2);
+  margin: 0;
+  line-height: 16px;
+  letter-spacing: 0;
+  min-height: 48px;
+}
+
+/* Точки навигации */
+.steps-slider-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.steps-slider-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg-2);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  padding: 0;
+}
+
+.steps-slider-dot:hover {
+  background: var(--fg-3);
+}
+
+.steps-slider-dot.active {
+  background: var(--fg-brand);
+}
