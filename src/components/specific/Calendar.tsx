@@ -15,10 +15,16 @@ export interface CalendarProps {
   };
   onDayClick?: (day: number, month: number, year: number) => void;
   onMonthChange?: (month: number, year: number) => void;
+  /**
+   * 📖 Called on mouse enter for prefetching adjacent months
+   * Source: https://tanstack.com/query/latest/docs/framework/react/guides/prefetching
+   */
+  onPrefetchPrevMonth?: () => void;
+  onPrefetchNextMonth?: () => void;
 }
 
 export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
-  ({ month, year, workoutDays = [], monthStats, onDayClick, onMonthChange }, ref) => {
+  ({ month, year, workoutDays = [], monthStats, onDayClick, onMonthChange, onPrefetchPrevMonth, onPrefetchNextMonth }, ref) => {
     const today = new Date();
     const [displayMonth, setDisplayMonth] = React.useState(month ?? today.getMonth());
     const [displayYear, setDisplayYear] = React.useState(year ?? today.getFullYear());
@@ -111,6 +117,7 @@ export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
                 aria-label="Previous month"
                 iconOnly
                 onClick={handlePrevMonth}
+                onMouseEnter={onPrefetchPrevMonth}
               />
               <Button
                 priority="secondary"
@@ -120,6 +127,7 @@ export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
                 aria-label="Next month"
                 iconOnly
                 onClick={handleNextMonth}
+                onMouseEnter={onPrefetchNextMonth}
               />
             </div>
 

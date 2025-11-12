@@ -1,9 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { Header, Calendar, Button } from '../components';
 import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import { useProfileSheet } from '../contexts/ProfileSheetContext';
 import { useSettingsSheet } from '../contexts/SettingsSheetContext';
+import { useMonthWorkouts, usePrefetchAdjacentMonths } from '../hooks/useMonthWorkouts';
+import { getWorkoutsForDate } from '../services/workoutsApi';
 
 interface CalendarPageProps {
   onDayClick?: (day: number, month: number, year: number) => void | Promise<void>;
@@ -15,9 +18,73 @@ interface CalendarPageProps {
 export function CalendarPage({ onDayClick, onMonthChange, workoutDays = [], savedWorkouts = new Map() }: CalendarPageProps) {
   const { openProfileSheet } = useProfileSheet();
   const { openSettingsSheet } = useSettingsSheet();
+  const queryClient = useQueryClient();
+  const prefetchMonth = usePrefetchAdjacentMonths();
+
   const today = new Date();
   const [displayMonth, setDisplayMonth] = useState(today.getMonth());
   const [displayYear, setDisplayYear] = useState(today.getFullYear());
+
+  /**
+   * Parallel load current + adjacent months
+   * 📖 Source: https://tanstack.com/query/latest/docs/framework/react/reference/useQueries
+   */
+  const monthQueries = useQueries({
+    queries: [
+      // Previous month
+      {
+        queryKey: ['workouts-month', displayYear, displayMonth - 1 < 0 ? 11 : displayMonth - 1],
+        queryFn: async () => {
+          const prevMonth = displayMonth - 1 < 0 ? 11 : displayMonth - 1;
+          const prevYear = displayMonth - 1 < 0 ? displayYear - 1 : displayYear;
+          const dateStr = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-01`;
+          return getWorkoutsForDate(dateStr);
+        },
+        staleTime: 1000 * 60 * 5,
+        gcTime: 1000 * 60 * 10,
+      },
+      // Current month
+      {
+        queryKey: ['workouts-month', displayYear, displayMonth],
+        queryFn: async () => {
+          const dateStr = `${displayYear}-${String(displayMonth + 1).padStart(2, '0')}-01`;
+          return getWorkoutsForDate(dateStr);
+        },
+        staleTime: 1000 * 60 * 5,
+        gcTime: 1000 * 60 * 10,
+      },
+      // Next month
+      {
+        queryKey: ['workouts-month', displayYear, displayMonth + 1 > 11 ? 0 : displayMonth + 1],
+        queryFn: async () => {
+          const nextMonth = displayMonth + 1 > 11 ? 0 : displayMonth + 1;
+          const nextYear = displayMonth + 1 > 11 ? displayYear + 1 : displayYear;
+          const dateStr = `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}-01`;
+          return getWorkoutsForDate(dateStr);
+        },
+        staleTime: 1000 * 60 * 5,
+        gcTime: 1000 * 60 * 10,
+      },
+    ],
+  });
+
+  const [prevMonthQuery, currentMonthQuery, nextMonthQuery] = monthQueries;
+
+  /**
+   * Prefetch months ahead/behind on navigation
+   * Triggered on mouse enter for instant transitions
+   */
+  const handlePrefetchPrevMonth = () => {
+    const prevMonth = displayMonth - 1 < 0 ? 11 : displayMonth - 1;
+    const prevYear = displayMonth - 1 < 0 ? displayYear - 1 : displayYear;
+    prefetchMonth(prevYear, prevMonth);
+  };
+
+  const handlePrefetchNextMonth = () => {
+    const nextMonth = displayMonth + 1 > 11 ? 0 : displayMonth + 1;
+    const nextYear = displayMonth + 1 > 11 ? displayYear + 1 : displayYear;
+    prefetchMonth(nextYear, nextMonth);
+  };
 
   const handleDayClick = async (day: number, month: number, year: number) => {
     if (onDayClick) {
@@ -107,6 +174,8 @@ export function CalendarPage({ onDayClick, onMonthChange, workoutDays = [], save
           monthStats={monthStats}
           onDayClick={handleDayClick}
           onMonthChange={handleMonthChange}
+          onPrefetchPrevMonth={handlePrefetchPrevMonth}
+          onPrefetchNextMonth={handlePrefetchNextMonth}
         />
       </div>
     </div>

@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTelegram } from './hooks/useTelegram';
 import { useUser } from './contexts/UserContext';
 import { syncPendingRequests, isOnline } from './lib/api';
 import { logger } from './lib/logger';
 import { showTelegramAlert } from './lib/telegram';
-import { getWorkoutsForDate, getWorkoutSetsForDay, deleteWorkout, getAllWorkoutsForUser, getWorkoutSessionsWithCount, getWorkoutSessionExercises } from './services/workoutsApi';
+import { getWorkoutsForDate, getWorkoutSetsForDay, deleteWorkout, getWorkoutSessionsWithCount, getWorkoutSessionExercises } from './services/workoutsApi';
 import { fetchExercises } from './services/directusApi';
 import { syncExercisesFromDirectus } from './services/exerciseSyncService';
 import { ExercisesPage } from './pages/ExercisesPage';
@@ -42,6 +43,7 @@ interface ExerciseWithTrackSets extends Exercise {
 export default function App() {
   useTelegram();
   const { currentUser, setCurrentUser } = useUser();
+  const queryClient = useQueryClient();
   const [currentPage, setCurrentPage] = useState<PageType>('calendar');
   const [showUsernameModal, setShowUsernameModal] = useState(false);
   const [usernameModalError, setUsernameModalError] = useState('');
@@ -113,95 +115,74 @@ export default function App() {
           return;
         }
 
-        // Load all workouts from server and recalculate stats
+        /**
+         * 📖 OPTIMIZED: Load only CURRENT MONTH first, then prefetch adjacent
+         * Source: https://tanstack.com/query/latest/docs/framework/react/guides/prefetching
+         * This dramatically improves first load time vs loading ALL workouts
+         */
+        const today = new Date();
+        const currentDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+
         try {
-          const allWorkoutsFromServer = await getAllWorkoutsForUser(currentUser?.id);
-          setLoadingProgress(50);
-          const serverWorkoutsMap = new Map<string, Array<{ trackSets: Set[] }>>();
-          const serverExercisesMap = new Map<string, ExerciseWithTrackSets[]>();
+          // Load current month workouts ONLY
+          const currentMonthWorkouts = await getWorkoutsForDate(currentDateStr, currentUser?.id);
+          setLoadingProgress(60);
 
-          if (allWorkoutsFromServer.length > 0) {
-            // Convert server workouts to the format expected by recalculateStatsFromSavedWorkouts
-            for (const workout of allWorkoutsFromServer) {
-              if (!workout.id) continue;
+          const workoutDaysSet = new Set<string>();
 
-              const dateStr = workout.date;
-              const parts = dateStr.split('-');
-              if (parts.length !== 3) continue;
-
-              const day = parseInt(parts[2], 10);
-              const month = parseInt(parts[1], 10) - 1;
-              const year = parseInt(parts[0], 10);
-              const dateKey = `${day}-${month}-${year}`;
-
-              // Get sets for this workout
+          /**
+           * 📖 OPTIMIZED: Load all sessions in PARALLEL, not sequentially!
+           * Source: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/all
+           *
+           * ❌ БЫЛО: for (const workout of workouts) { await ... } - ПОСЛЕДОВАТЕЛЬНО (медленно!)
+           * ✅ СТАЛО: Promise.all(workouts.map(...)) - ПАРАЛЛЕЛЬНО (быстро!)
+           */
+          if (currentMonthWorkouts && currentMonthWorkouts.length > 0) {
+            // Load all sessions in parallel
+            const sessionsPromises = currentMonthWorkouts.map(async (workout) => {
               try {
-                // ВАЖНО: сначала проверяем есть ли сессии в этом дне!
-                // После удаления последней сессии, user_day остается пустой
                 const sessions = await getWorkoutSessionsWithCount(workout.id);
-                if (!sessions || sessions.length === 0) {
-                  // Нет сессий в этом дне - пропускаем
-                  logger.debug('No sessions in user day during init, skipping', { userDayId: workout.id, dateKey });
-                  continue;
-                }
-
-                const setsData = await getWorkoutSetsForDay(dateStr, currentUser?.id);
-                if (setsData && setsData.exercises.size > 0) {
-                  const exercises: Array<{ trackSets: Set[] }> = [];
-                  const exercisesWithInfo: ExerciseWithTrackSets[] = [];
-
-                  for (const [directusExerciseId, workoutExercise] of setsData.exercises) {
-                    const exerciseSets = setsData.exerciseSets.get(directusExerciseId) || [];
-                    const trackSets = exerciseSets.map(set => ({
-                      reps: set.reps,
-                      weight: set.weight
-                    }));
-
-                    exercises.push({ trackSets });
-
-                    // Get exercise info for display
-                    let exerciseInfo = allExercises.find(ex => String(ex.id) === directusExerciseId);
-                    if (!exerciseInfo) {
-                      const exerciseName = (workoutExercise as any).exercise?.name || 'Unknown Exercise';
-                      exerciseInfo = {
-                        id: directusExerciseId,
-                        name: exerciseName,
-                        category: (workoutExercise as any).exercise?.category || 'Unknown',
-                        description: (workoutExercise as any).exercise?.description || ''
-                      };
-                    }
-
-                    exercisesWithInfo.push({
-                      ...exerciseInfo,
-                      trackSets
-                    });
-                  }
-
-                  if (exercises.length > 0) {
-                    serverWorkoutsMap.set(dateKey, exercises);
-                    serverExercisesMap.set(dateKey, exercisesWithInfo);
-                  }
-                }
+                return {
+                  userDayId: workout.id,
+                  date: workout.date,
+                  hasWorkout: sessions && sessions.length > 0
+                };
               } catch (err) {
-                // Silently fail
+                logger.warn('Failed to get sessions for day', { userDayId: workout.id });
+                return {
+                  userDayId: workout.id,
+                  date: workout.date,
+                  hasWorkout: false
+                };
               }
-            }
+            });
+
+            // Wait for all sessions to load in parallel
+            const resultsArray = await Promise.all(sessionsPromises);
+
+            // Add days with workouts to the set
+            resultsArray.forEach(result => {
+              if (result.hasWorkout) {
+                const dateStr = result.date;
+                const parts = dateStr.split('-');
+                if (parts.length === 3) {
+                  const day = parseInt(parts[2], 10);
+                  const month = parseInt(parts[1], 10) - 1;
+                  const year = parseInt(parts[0], 10);
+                  const dateKey = `${day}-${month}-${year}`;
+                  workoutDaysSet.add(dateKey);
+                }
+              }
+            });
           }
 
-          // Update savedWorkouts with server data for UI display
-          setSavedWorkouts(serverExercisesMap);
-
-          // Recalculate workoutDays based on actual server data
-          // This ensures calendar points are always in sync with actual workouts
-          const actualWorkoutDays = Array.from(serverExercisesMap.keys());
-          setWorkoutDays(actualWorkoutDays);
-          logger.info('Recalculated workoutDays from server', { count: actualWorkoutDays.length });
-
-          // Always recalculate profile stats from server workouts (even if empty)
-          // This ensures stats are synced across browsers
-          recalculateStatsFromSavedWorkouts(serverWorkoutsMap, currentUser?.created_at);
+          setWorkoutDays(Array.from(workoutDaysSet));
+          logger.info('Current month workouts loaded in PARALLEL', {
+            count: workoutDaysSet.size,
+            totalDays: currentMonthWorkouts?.length
+          });
         } catch (err) {
-          // Silently fail
+          logger.warn('Failed to load current month workouts', { err });
         }
 
         setLoadingProgress(70);
@@ -220,18 +201,42 @@ export default function App() {
 
         setLoadingProgress(85);
 
-        // Load current month workouts
-        const today = new Date();
-        try {
-          await loadWorkoutsForCurrentMonth(today.getMonth(), today.getFullYear());
-        } catch (loadError) {
-          // Continue anyway
-        }
+        // Prefetch adjacent months in the background (after showing UI)
+        // This happens AFTER app is rendered, so doesn't block initial load
+        // 📖 Source: https://tanstack.com/query/latest/docs/framework/react/reference/useQueryClient#queryclientprefetchquery
+        setTimeout(() => {
+          // Prefetch previous month
+          const prevMonth = today.getMonth() - 1 < 0 ? 11 : today.getMonth() - 1;
+          const prevYear = today.getMonth() - 1 < 0 ? today.getFullYear() - 1 : today.getFullYear();
+          queryClient.prefetchQuery({
+            queryKey: ['workouts-month', prevYear, prevMonth],
+            queryFn: async () => {
+              const dateStr = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-01`;
+              return getWorkoutsForDate(dateStr, currentUser?.id);
+            },
+            staleTime: 1000 * 60 * 5,
+          });
+
+          // Prefetch next month
+          const nextMonth = today.getMonth() + 1 > 11 ? 0 : today.getMonth() + 1;
+          const nextYear = today.getMonth() + 1 > 11 ? today.getFullYear() + 1 : today.getFullYear();
+          queryClient.prefetchQuery({
+            queryKey: ['workouts-month', nextYear, nextMonth],
+            queryFn: async () => {
+              const dateStr = `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}-01`;
+              return getWorkoutsForDate(dateStr, currentUser?.id);
+            },
+            staleTime: 1000 * 60 * 5,
+          });
+
+          logger.info('Prefetch for adjacent months started', { prevYear, prevMonth, nextYear, nextMonth });
+        }, 500);
 
         setLoadingProgress(100);
         setIsLoadingWorkouts(false);
         setLoadingProgress(0);
       } catch (error) {
+        logger.error('Initialization error', { error });
         setIsLoadingWorkouts(false);
         setLoadingProgress(0);
       }
@@ -346,32 +351,49 @@ export default function App() {
       // Extract unique days that have workouts WITH sessions
       const newDaysWithWorkouts = new Set<string>();
 
-      for (const workout of workouts) {
-        const dateField = workout.date;
-
-        if (!dateField) {
-          continue;
-        }
-
-        // Check if this user_day actually has workout sessions
-        try {
-          const sessions = await getWorkoutSessionsWithCount(workout.id);
-          if (!sessions || sessions.length === 0) {
-            logger.debug('[CALENDAR] No sessions in user day, skipping', { dateKey: dateField, userDayId: workout.id });
-            continue;
+      /**
+       * 📖 OPTIMIZED: Load all sessions in PARALLEL!
+       * ❌ БЫЛО: for (const workout) { await ... } - ПОСЛЕДОВАТЕЛЬНО
+       * ✅ СТАЛО: Promise.all() - ПАРАЛЛЕЛЬНО
+       */
+      if (workouts && workouts.length > 0) {
+        // Get all sessions in parallel
+        const sessionPromises = workouts.map(async (workout) => {
+          try {
+            const sessions = await getWorkoutSessionsWithCount(workout.id);
+            return {
+              dateField: workout.date,
+              hasWorkout: sessions && sessions.length > 0
+            };
+          } catch (sessionError) {
+            logger.warn('[CALENDAR] Error checking sessions', { dateField: workout.date });
+            return {
+              dateField: workout.date,
+              hasWorkout: false
+            };
           }
-        } catch (sessionError) {
-          logger.warn('[CALENDAR] Error checking sessions, skipping day', { dateField, error: sessionError });
-          continue;
-        }
+        });
 
-        const parts = dateField.split('-');
-        if (parts.length === 3) {
-          const day = parseInt(parts[2], 10);
-          const workoutMonth = parseInt(parts[1], 10) - 1;
-          const workoutYear = parseInt(parts[0], 10);
-          newDaysWithWorkouts.add(`${day}-${workoutMonth}-${workoutYear}`);
-        }
+        const resultsArray = await Promise.all(sessionPromises);
+
+        // Process results
+        resultsArray.forEach(result => {
+          if (!result.dateField || !result.hasWorkout) return;
+
+          const parts = result.dateField.split('-');
+          if (parts.length === 3) {
+            const day = parseInt(parts[2], 10);
+            const workoutMonth = parseInt(parts[1], 10) - 1;
+            const workoutYear = parseInt(parts[0], 10);
+            newDaysWithWorkouts.add(`${day}-${workoutMonth}-${workoutYear}`);
+          }
+        });
+
+        logger.debug('[CALENDAR] Loaded month workouts in PARALLEL', {
+          month: targetMonth,
+          year: targetYear,
+          daysWithWorkouts: newDaysWithWorkouts.size
+        });
       }
 
       // Accumulate workouts - merge new ones with existing ones
