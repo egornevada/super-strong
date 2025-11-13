@@ -60,7 +60,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
               <DefaultStroke label="Версия" value="Pre-Classic" />
             </div>
             <div className="py-4 border-b border-stroke-1">
-              <DefaultStroke label="Сборка" value="10.11.2025" />
+              <DefaultStroke label="Сборка" value="14.11.2025" />
             </div>
           </div>
         </div>

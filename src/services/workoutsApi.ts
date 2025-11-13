@@ -137,6 +137,7 @@ export async function getWorkoutSessionsWithCount(userDayId: string): Promise<Wo
 
 /**
  * Create a workout session AND save all exercises with sets in one operation
+ * OPTIMIZED: Uses Promise.all for parallel saving of exercises and sets
  * THIS IS THE MAIN SAVE FUNCTION - Used by MyExercisesPage
  */
 export async function createAndSaveWorkoutSession(
@@ -155,48 +156,64 @@ export async function createAndSaveWorkoutSession(
     const session = await createWorkoutSession(userId, userDayId, startedAt);
     logger.debug('Workout session created', { sessionId: session.id, startedAt });
 
-    // Step 2: Save each exercise with its sets
-    let exercisesSaved = 0;
-    let setsSaved = 0;
+    // Step 2: Load all Supabase exercises in PARALLEL (not sequentially)
+    const supabaseExercisePromises = exercises.map(exercise =>
+      getExerciseByDirectusId(exercise.exerciseId)
+        .catch(error => {
+          logger.warn('Failed to get exercise from Supabase', { directusId: exercise.exerciseId, error });
+          return null;
+        })
+    );
+    const supabaseExercises = await Promise.all(supabaseExercisePromises);
 
-    for (const exercise of exercises) {
-      try {
-        // Get the Supabase exercise
-        const supabaseExercise = await getExerciseByDirectusId(exercise.exerciseId);
+    // Step 3: Create all workout exercises in PARALLEL
+    const workoutExercisePromises: Promise<any>[] = [];
+    const validExercisePairs: Array<{ exercise: ExerciseData; workoutExercisePromise: Promise<any> }> = [];
 
-        if (!supabaseExercise) {
-          logger.warn('Exercise not found in Supabase', { directusId: exercise.exerciseId });
-          continue;
-        }
+    supabaseExercises.forEach((supabaseExercise, index) => {
+      if (!supabaseExercise) {
+        logger.warn('Exercise not found in Supabase', { directusId: exercises[index].exerciseId });
+        return;
+      }
 
-        // Create workout exercise
-        const workoutExercise = await createWorkoutExercise(session.id, supabaseExercise.id);
-        exercisesSaved++;
-        logger.debug('Workout exercise created', {
-          sessionId: session.id,
-          exerciseName: supabaseExercise.name
+      const promise = createWorkoutExercise(session.id, supabaseExercise.id);
+      workoutExercisePromises.push(promise);
+      validExercisePairs.push({
+        exercise: exercises[index],
+        workoutExercisePromise: promise
+      });
+    });
+
+    const workoutExercises = await Promise.all(workoutExercisePromises);
+    logger.debug('All workout exercises created', { count: workoutExercises.length });
+
+    // Step 4: Create all sets for all exercises in PARALLEL
+    const allSetPromises: Promise<any>[] = [];
+
+    for (let i = 0; i < validExercisePairs.length; i++) {
+      const { exercise, workoutExercisePromise } = validExercisePairs[i];
+      const workoutExercise = workoutExercises[i];
+
+      // Create set promises for this exercise
+      for (let setIndex = 0; setIndex < exercise.sets.length; setIndex++) {
+        const set = exercise.sets[setIndex];
+        const setPromise = createUserDayExerciseSet({
+          user_day_workout_exercise_id: workoutExercise.id,
+          reps: set.reps,
+          weight: set.weight,
+          set_order: setIndex + 1
         });
-
-        // Create sets for this exercise
-        for (let setIndex = 0; setIndex < exercise.sets.length; setIndex++) {
-          const set = exercise.sets[setIndex];
-          await createUserDayExerciseSet({
-            user_day_workout_exercise_id: workoutExercise.id,
-            reps: set.reps,
-            weight: set.weight,
-            set_order: setIndex + 1
-          });
-          setsSaved++;
-        }
-      } catch (error) {
-        logger.warn('Failed to save exercise', { exerciseId: exercise.exerciseId, error });
-        // Continue with next exercise
+        allSetPromises.push(setPromise);
       }
     }
 
+    // Wait for all sets to be created in parallel
+    const savedSets = await Promise.all(allSetPromises);
+    const setsSaved = savedSets.length;
+
     logger.info('Workout session saved successfully', {
       sessionId: session.id,
-      exercisesSaved,
+      exercisesSaved: workoutExercises.length,
       setsSaved
     });
 
@@ -210,6 +227,7 @@ export async function createAndSaveWorkoutSession(
 /**
  * Update an existing workout session with new exercises
  * Deletes old exercises and saves new ones
+ * OPTIMIZED: Uses Promise.all for parallel saving of exercises and sets
  */
 export async function updateWorkoutSessionExercises(
   workoutSessionId: string,
@@ -221,55 +239,70 @@ export async function updateWorkoutSessionExercises(
       exerciseCount: exercises.length
     });
 
-    // Step 1: Delete all existing exercises for this session
+    // Step 1: Delete all existing exercises for this session in PARALLEL
     const existingExercises = await getUserDayExercisesByWorkout(workoutSessionId);
-    for (const existingExercise of existingExercises) {
-      await deleteUserDayExercise(existingExercise.id);
-    }
+    const deletePromises = existingExercises.map(ex => deleteUserDayExercise(ex.id));
+    await Promise.all(deletePromises);
     logger.debug('Deleted existing exercises', { count: existingExercises.length });
 
-    // Step 2: Add new exercises with their sets
-    let exercisesSaved = 0;
-    let setsSaved = 0;
+    // Step 2: Load all Supabase exercises in PARALLEL
+    const supabaseExercisePromises = exercises.map(exercise =>
+      getExerciseByDirectusId(exercise.exerciseId)
+        .catch(error => {
+          logger.warn('Failed to get exercise from Supabase', { directusId: exercise.exerciseId, error });
+          return null;
+        })
+    );
+    const supabaseExercises = await Promise.all(supabaseExercisePromises);
 
-    for (const exercise of exercises) {
-      try {
-        // Get the Supabase exercise
-        const supabaseExercise = await getExerciseByDirectusId(exercise.exerciseId);
+    // Step 3: Create all workout exercises in PARALLEL
+    const workoutExercisePromises: Promise<any>[] = [];
+    const validExercisePairs: Array<{ exercise: ExerciseData; index: number }> = [];
 
-        if (!supabaseExercise) {
-          logger.warn('Exercise not found in Supabase', { directusId: exercise.exerciseId });
-          continue;
-        }
+    supabaseExercises.forEach((supabaseExercise, index) => {
+      if (!supabaseExercise) {
+        logger.warn('Exercise not found in Supabase', { directusId: exercises[index].exerciseId });
+        return;
+      }
 
-        // Create workout exercise
-        const workoutExercise = await createWorkoutExercise(workoutSessionId, supabaseExercise.id);
-        exercisesSaved++;
-        logger.debug('Workout exercise created', {
-          sessionId: workoutSessionId,
-          exerciseName: supabaseExercise.name
+      const promise = createWorkoutExercise(workoutSessionId, supabaseExercise.id);
+      workoutExercisePromises.push(promise);
+      validExercisePairs.push({
+        exercise: exercises[index],
+        index
+      });
+    });
+
+    const workoutExercises = await Promise.all(workoutExercisePromises);
+    logger.debug('All workout exercises created', { count: workoutExercises.length });
+
+    // Step 4: Create all sets for all exercises in PARALLEL
+    const allSetPromises: Promise<any>[] = [];
+
+    for (let i = 0; i < validExercisePairs.length; i++) {
+      const { exercise } = validExercisePairs[i];
+      const workoutExercise = workoutExercises[i];
+
+      // Create set promises for this exercise
+      for (let setIndex = 0; setIndex < exercise.sets.length; setIndex++) {
+        const set = exercise.sets[setIndex];
+        const setPromise = createUserDayExerciseSet({
+          user_day_workout_exercise_id: workoutExercise.id,
+          reps: set.reps,
+          weight: set.weight,
+          set_order: setIndex + 1
         });
-
-        // Create sets for this exercise
-        for (let setIndex = 0; setIndex < exercise.sets.length; setIndex++) {
-          const set = exercise.sets[setIndex];
-          await createUserDayExerciseSet({
-            user_day_workout_exercise_id: workoutExercise.id,
-            reps: set.reps,
-            weight: set.weight,
-            set_order: setIndex + 1
-          });
-          setsSaved++;
-        }
-      } catch (error) {
-        logger.warn('Failed to save exercise', { exerciseId: exercise.exerciseId, error });
-        // Continue with next exercise
+        allSetPromises.push(setPromise);
       }
     }
 
+    // Wait for all sets to be created in parallel
+    const savedSets = await Promise.all(allSetPromises);
+    const setsSaved = savedSets.length;
+
     logger.info('Workout session updated successfully', {
       workoutSessionId,
-      exercisesSaved,
+      exercisesSaved: workoutExercises.length,
       setsSaved
     });
   } catch (error) {
@@ -448,6 +481,213 @@ export function convertExerciseToApiFormat(
   };
 }
 
+/**
+ * Load ALL workout data for a user (all time)
+ * This is used to calculate profile statistics correctly
+ */
+export async function loadAllUserWorkoutData(
+  userId: string,
+  allExercises: any[]
+): Promise<Map<string, any[]>> {
+  try {
+    const result = new Map<string, any[]>();
+
+    // Get all user days for all time
+    const userDays = await getAllUserDays(userId);
+
+    if (!userDays || userDays.length === 0) {
+      return result;
+    }
+
+    // Load exercises and sets for each day in parallel
+    const dayPromises = userDays.map(async (userDay) => {
+      try {
+        // Check if this day has any sessions
+        const sessions = await getWorkoutSessionsForDay(userDay.id);
+        if (!sessions || sessions.length === 0) {
+          return null;
+        }
+
+        // Get all exercises from all sessions for this day
+        const setsData = await getWorkoutSetsForDay(userDay.date, userId);
+        if (!setsData || setsData.exercises.size === 0) {
+          return null;
+        }
+
+        // Convert to ExerciseWithTrackSets format
+        const exercisesWithSets: any[] = [];
+        for (const [directusExerciseId, workoutExercise] of setsData.exercises) {
+          const exerciseSets = setsData.exerciseSets.get(directusExerciseId) || [];
+          const trackSets = exerciseSets.map(set => ({
+            reps: set.reps,
+            weight: set.weight
+          }));
+
+          // Get exercise info
+          let exerciseInfo = allExercises.find(ex => String(ex.id) === directusExerciseId);
+          if (!exerciseInfo) {
+            const exerciseName = (workoutExercise as any).exercise?.name || 'Unknown Exercise';
+            exerciseInfo = {
+              id: directusExerciseId,
+              name: exerciseName,
+              category: (workoutExercise as any).exercise?.category || 'Unknown',
+              description: (workoutExercise as any).exercise?.description || ''
+            };
+          }
+
+          exercisesWithSets.push({
+            ...exerciseInfo,
+            trackSets
+          });
+        }
+
+        // Convert date format to dateKey format (day-month-year)
+        const parts = userDay.date.split('-');
+        if (parts.length === 3) {
+          const day = parseInt(parts[2], 10);
+          const dateMonth = parseInt(parts[1], 10) - 1;
+          const dateYear = parseInt(parts[0], 10);
+          const dateKey = `${day}-${dateMonth}-${dateYear}`;
+
+          if (exercisesWithSets.length > 0) {
+            return { dateKey, exercises: exercisesWithSets };
+          }
+        }
+
+        return null;
+      } catch (err) {
+        logger.warn('Failed to load day workout data', { userDayId: userDay.id, error: err });
+        return null;
+      }
+    });
+
+    // Wait for all days to load in parallel
+    const dayResults = await Promise.all(dayPromises);
+
+    // Build the result map
+    dayResults.forEach(dayResult => {
+      if (dayResult) {
+        result.set(dayResult.dateKey, dayResult.exercises);
+      }
+    });
+
+    logger.info('All user workout data loaded', {
+      daysCount: result.size
+    });
+
+    return result;
+  } catch (error) {
+    logger.error('Failed to load all user workout data', { error });
+    return new Map();
+  }
+}
+
+/**
+ * Load all workout data for a month and return as Map<dateKey, exercises>
+ * This is used to populate savedWorkouts for calendar statistics
+ */
+export async function loadMonthWorkoutData(
+  year: number,
+  month: number,
+  userId: string,
+  allExercises: any[]
+): Promise<Map<string, any[]>> {
+  try {
+    const result = new Map<string, any[]>();
+
+    // Get all user days for this month
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+    const userDays = await getUserDaysForMonth(userId, year, month + 1);
+
+    if (!userDays || userDays.length === 0) {
+      return result;
+    }
+
+    // Load exercises and sets for each day in parallel
+    const dayPromises = userDays.map(async (userDay) => {
+      try {
+        // Check if this day has any sessions
+        const sessions = await getWorkoutSessionsForDay(userDay.id);
+        if (!sessions || sessions.length === 0) {
+          return null;
+        }
+
+        // Get all exercises from all sessions for this day
+        const setsData = await getWorkoutSetsForDay(userDay.date, userId);
+        if (!setsData || setsData.exercises.size === 0) {
+          return null;
+        }
+
+        // Convert to ExerciseWithTrackSets format
+        const exercisesWithSets: any[] = [];
+        for (const [directusExerciseId, workoutExercise] of setsData.exercises) {
+          const exerciseSets = setsData.exerciseSets.get(directusExerciseId) || [];
+          const trackSets = exerciseSets.map(set => ({
+            reps: set.reps,
+            weight: set.weight
+          }));
+
+          // Get exercise info
+          let exerciseInfo = allExercises.find(ex => String(ex.id) === directusExerciseId);
+          if (!exerciseInfo) {
+            const exerciseName = (workoutExercise as any).exercise?.name || 'Unknown Exercise';
+            exerciseInfo = {
+              id: directusExerciseId,
+              name: exerciseName,
+              category: (workoutExercise as any).exercise?.category || 'Unknown',
+              description: (workoutExercise as any).exercise?.description || ''
+            };
+          }
+
+          exercisesWithSets.push({
+            ...exerciseInfo,
+            trackSets
+          });
+        }
+
+        // Convert date format to dateKey format (day-month-year)
+        const parts = userDay.date.split('-');
+        if (parts.length === 3) {
+          const day = parseInt(parts[2], 10);
+          const dateMonth = parseInt(parts[1], 10) - 1;
+          const dateYear = parseInt(parts[0], 10);
+          const dateKey = `${day}-${dateMonth}-${dateYear}`;
+
+          if (exercisesWithSets.length > 0) {
+            return { dateKey, exercises: exercisesWithSets };
+          }
+        }
+
+        return null;
+      } catch (err) {
+        logger.warn('Failed to load day workout data', { userDayId: userDay.id, error: err });
+        return null;
+      }
+    });
+
+    // Wait for all days to load in parallel
+    const dayResults = await Promise.all(dayPromises);
+
+    // Build the result map
+    dayResults.forEach(dayResult => {
+      if (dayResult) {
+        result.set(dayResult.dateKey, dayResult.exercises);
+      }
+    });
+
+    logger.info('Month workout data loaded', {
+      year,
+      month,
+      daysCount: result.size
+    });
+
+    return result;
+  } catch (error) {
+    logger.error('Failed to load month workout data', { year, month, error });
+    return new Map();
+  }
+}
+
 export default {
   getAllWorkoutsForUser,
   getWorkoutsForDate,
@@ -458,5 +698,7 @@ export default {
   deleteWorkoutSessionWithExercises,
   getWorkoutSetsForDay,
   deleteWorkout,
-  convertExerciseToApiFormat
+  convertExerciseToApiFormat,
+  loadAllUserWorkoutData,
+  loadMonthWorkoutData
 };

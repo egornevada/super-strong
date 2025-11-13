@@ -1,7 +1,7 @@
 import { api } from '../lib/api';
 import { logger } from '../lib/logger';
 
-const DIRECTUS_URL = import.meta.env.VITE_DIRECTUS_URL || "http://localhost:8055";
+const DIRECTUS_URL = import.meta.env.VITE_API_URL || "http://localhost:8055";
 
 export interface Step {
   image?: {
@@ -72,30 +72,42 @@ export async function fetchExercises(): Promise<Exercise[]> {
   try {
     // Получаем упражнения с их категориями через Directus REST API
     const response = await api.get<DirectusResponse<DirectusExercise>>(
-      '/items/exercises?fields=id,name,description,category.id,category.name&limit=-1'
+      '/items/exercises?fields=id,name,description,image.id,image.title,step_1_image.id,step_1_image.title,category.id,category.name&limit=-1'
     );
-
-    console.log('[directusApi] fetchExercises response:', response);
 
     const data = Array.isArray(response) ? response : (response?.data || []);
 
-    console.log('[directusApi] fetchExercises data:', data);
-
     // Преобразуем формат Directus в наш формат
-    const result = data.map((item: any) => ({
-      id: String(item.id),
-      name: item.name || "",
-      category: item.category?.name || "Без категории",
-      description: item.description || "",
-      image: item.image
-        ? {
-            url: `${DIRECTUS_URL}/assets/${item.image.id}`,
-            alternativeText: item.image.title || item.name,
-          }
-        : undefined,
-    }));
+    const result = data.map((item: any) => {
+      // Обработка image - может быть ID (строка) или объект
+      // Если нет основного image, используем первый шаг
+      let imageData = undefined;
+      if (item.image) {
+        const imageId = typeof item.image === 'string' ? item.image : item.image.id;
+        const imageTitle = typeof item.image === 'object' ? item.image.title : null;
+        imageData = {
+          url: `${DIRECTUS_URL}/assets/${imageId}`,
+          alternativeText: imageTitle || item.name,
+        };
+      } else if (item.step_1_image) {
+        // Если нет основного image, используем первый шаг
+        const imageId = typeof item.step_1_image === 'string' ? item.step_1_image : item.step_1_image.id;
+        const imageTitle = typeof item.step_1_image === 'object' ? item.step_1_image.title : null;
+        imageData = {
+          url: `${DIRECTUS_URL}/assets/${imageId}`,
+          alternativeText: imageTitle || item.name,
+        };
+      }
 
-    console.log('[directusApi] fetchExercises result:', result);
+      return {
+        id: String(item.id),
+        name: item.name || "",
+        category: item.category?.name || "Без категории",
+        description: item.description || "",
+        image: imageData,
+      };
+    });
+
     return result;
   } catch (error) {
     logger.error("Failed to fetch exercises from Directus:", error);
@@ -111,23 +123,40 @@ export async function fetchExercisesByCategory(
 ): Promise<Exercise[]> {
   try {
     const response = await api.get<DirectusResponse<DirectusExercise>>(
-      `/items/exercises?fields=id,name,description,category.id,category.name&filter[category][name][_eq]=${encodeURIComponent(category)}&limit=-1`
+      `/items/exercises?fields=id,name,description,image.id,image.title,step_1_image.id,step_1_image.title,category.id,category.name&filter[category][name][_eq]=${encodeURIComponent(category)}&limit=-1`
     );
-
-    console.log('[directusApi] fetchExercisesByCategory response:', response);
 
     const data = Array.isArray(response) ? response : (response?.data || []);
 
-    console.log('[directusApi] fetchExercisesByCategory data:', data);
+    const result = data.map((item: any) => {
+      // Обработка image - может быть ID (строка) или объект
+      // Если нет основного image, используем первый шаг
+      let imageData = undefined;
+      if (item.image) {
+        const imageId = typeof item.image === 'string' ? item.image : item.image.id;
+        const imageTitle = typeof item.image === 'object' ? item.image.title : null;
+        imageData = {
+          url: `${DIRECTUS_URL}/assets/${imageId}`,
+          alternativeText: imageTitle || item.name,
+        };
+      } else if (item.step_1_image) {
+        // Если нет основного image, используем первый шаг
+        const imageId = typeof item.step_1_image === 'string' ? item.step_1_image : item.step_1_image.id;
+        const imageTitle = typeof item.step_1_image === 'object' ? item.step_1_image.title : null;
+        imageData = {
+          url: `${DIRECTUS_URL}/assets/${imageId}`,
+          alternativeText: imageTitle || item.name,
+        };
+      }
 
-    const result = data.map((item: DirectusExercise) => ({
-      id: item.id,
-      name: item.name || "",
-      category: category,
-      description: item.description || "",
-    }));
-
-    console.log('[directusApi] fetchExercisesByCategory result:', result);
+      return {
+        id: item.id,
+        name: item.name || "",
+        category: category,
+        description: item.description || "",
+        image: imageData,
+      };
+    });
 
     return result;
   } catch (error) {
@@ -169,7 +198,7 @@ export async function fetchCategories(): Promise<string[]> {
 export async function fetchExerciseById(id: string): Promise<Exercise> {
   try {
     const response = await api.get<any>(
-      `/items/exercises/${id}?fields=id,name,description,category.id,category.name,step_1_image,step_1_title,step_1_description,step_2_image,step_2_title,step_2_description,step_3_image,step_3_title,step_3_description,step_4_image,step_4_title,step_4_description,step_5_image,step_5_title,step_5_description`
+      `/items/exercises/${id}?fields=id,name,description,image.id,image.title,category.id,category.name,step_1_image,step_1_title,step_1_description,step_2_image,step_2_title,step_2_description,step_3_image,step_3_title,step_3_description,step_4_image,step_4_title,step_4_description,step_5_image,step_5_title,step_5_description`
     );
 
     // Directus returns { data: {...} } for single item GET, or {...} directly
@@ -181,16 +210,21 @@ export async function fetchExerciseById(id: string): Promise<Exercise> {
 
     // Собираем шаги из полей step_N_image, step_N_title, step_N_description
     const steps: Step[] = [];
+
     for (let i = 1; i <= 5; i++) {
       const imageField = `step_${i}_image`;
       const titleField = `step_${i}_title`;
       const descField = `step_${i}_description`;
 
-      if (data[imageField]) {
+      const imageData = data[imageField];
+
+      if (imageData) {
+        // imageData может быть строкой (ID) или объектом с id
+        const imageId = typeof imageData === 'string' ? imageData : imageData.id;
         steps.push({
           image: {
-            url: `${DIRECTUS_URL}/assets/${data[imageField].id}`,
-            alternativeText: data[imageField].title || `Step ${i}`,
+            url: `${DIRECTUS_URL}/assets/${imageId}`,
+            alternativeText: (typeof imageData === 'object' ? imageData.title : null) || `Step ${i}`,
           },
           title: data[titleField] || `Шаг ${i}`,
           description: data[descField] || "",
@@ -198,11 +232,27 @@ export async function fetchExerciseById(id: string): Promise<Exercise> {
       }
     }
 
+    // Обработка основного image
+    // Если нет основного image, используем первый шаг как обложку
+    let imageData = undefined;
+    if (data.image) {
+      const imageId = typeof data.image === 'string' ? data.image : data.image.id;
+      const imageTitle = typeof data.image === 'object' ? data.image.title : null;
+      imageData = {
+        url: `${DIRECTUS_URL}/assets/${imageId}`,
+        alternativeText: imageTitle || data.name,
+      };
+    } else if (steps.length > 0 && steps[0].image) {
+      // Если нет основного image, используем первый шаг
+      imageData = steps[0].image;
+    }
+
     return {
       id: String(data.id),
       name: data.name || "",
       category: data.category?.name || "Без категории",
       description: data.description || "",
+      image: imageData,
       steps: steps.length > 0 ? steps : undefined,
     };
   } catch (error) {

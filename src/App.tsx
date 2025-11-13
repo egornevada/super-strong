@@ -5,7 +5,7 @@ import { useUser } from './contexts/UserContext';
 import { syncPendingRequests, isOnline } from './lib/api';
 import { logger } from './lib/logger';
 import { showTelegramAlert } from './lib/telegram';
-import { getWorkoutsForDate, getWorkoutSetsForDay, deleteWorkout, getAllWorkoutsForUser, getWorkoutSessionsWithCount, getWorkoutSessionExercises } from './services/workoutsApi';
+import { getWorkoutsForDate, getWorkoutSetsForDay, deleteWorkout, getAllWorkoutsForUser, getWorkoutSessionsWithCount, getWorkoutSessionExercises, loadMonthWorkoutData, loadAllUserWorkoutData } from './services/workoutsApi';
 import { fetchExercises } from './services/directusApi';
 import { syncExercisesFromDirectus } from './services/exerciseSyncService';
 import { ExercisesPage } from './pages/ExercisesPage';
@@ -186,6 +186,36 @@ export default function App() {
             count: workoutDaysSet.size,
             totalDays: currentMonthWorkouts?.length
           });
+
+          // Load ALL workout data for profile statistics (one time, not per month)
+          setCurrentLoadingStep('Загружаем статистику тренировок');
+          const allWorkoutData = await loadAllUserWorkoutData(
+            currentUser?.id || '',
+            exercisesData
+          );
+
+          // Set savedWorkouts with all data
+          setSavedWorkouts(allWorkoutData);
+
+          // Recalculate profile stats from ALL loaded data
+          // Convert dateKey format (day-month-year) to YYYY-MM-DD format expected by profileStats
+          const serverWorkoutsForStats = new Map<string, Array<{ trackSets: Set[] }>>();
+          allWorkoutData.forEach((exercises, dateKey) => {
+            const parts = dateKey.split('-');
+            if (parts.length === 3) {
+              const day = parseInt(parts[0], 10);
+              const month = parseInt(parts[1], 10);
+              const year = parseInt(parts[2], 10);
+              const isoDateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+              serverWorkoutsForStats.set(isoDateKey, exercises.map(ex => ({
+                trackSets: ex.trackSets || []
+              })));
+            }
+          });
+          recalculateStatsFromSavedWorkouts(serverWorkoutsForStats, currentUser?.created_at);
+
+          setLoadingProgress(65);
+
         } catch (err) {
           logger.warn('Failed to load current month workouts', { err });
         }
@@ -407,10 +437,38 @@ export default function App() {
         newDaysWithWorkouts.forEach(day => merged.add(day));
         return Array.from(merged);
       });
+
+      // Load workout data for this specific month (for calendar display only)
+      // Note: Profile statistics are calculated once at startup with ALL data, not updated per month
+      try {
+        const monthWorkoutData = await loadMonthWorkoutData(
+          targetYear,
+          targetMonth,
+          currentUser.id,
+          allExercises
+        );
+
+        // Merge with existing saved workouts (for calendar stats per month)
+        setSavedWorkouts((prev) => {
+          const merged = new Map(prev);
+          monthWorkoutData.forEach((exercises, dateKey) => {
+            merged.set(dateKey, exercises);
+          });
+          return merged;
+        });
+
+        logger.info('Month workout data loaded for calendar', {
+          month: targetMonth,
+          year: targetYear,
+          daysCount: monthWorkoutData.size
+        });
+      } catch (statsError) {
+        logger.warn('Failed to load month workout data', { statsError });
+      }
     } catch (error) {
       // Silently fail - use local data if available
     }
-  }, [currentUser?.id]);
+  }, [currentUser?.id, allExercises]);
 
   // Handle month changes in calendar
   const handleCalendarMonthChange = async (month: number, year: number) => {

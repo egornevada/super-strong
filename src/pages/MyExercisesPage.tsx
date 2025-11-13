@@ -325,11 +325,13 @@ export function MyExercisesPage({
                   }
                   image={
                     exercise.image ? (
-                      <img
-                        src={exercise.image.url}
-                        alt={exercise.image.alternativeText || exercise.name}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      />
+                      <div className="w-full h-full overflow-hidden">
+                        <img
+                          src={exercise.image.url}
+                          alt={exercise.image.alternativeText || exercise.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
                     ) : undefined
                   }
                   sets={exercise.trackSets}
