@@ -5,6 +5,7 @@ import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import { useProfileSheet } from '../contexts/ProfileSheetContext';
 import { useSettingsSheet } from '../contexts/SettingsSheetContext';
+import { useBugReportSheet } from '../contexts/BugReportSheetContext';
 import { useMonthWorkouts, usePrefetchAdjacentMonths } from '../hooks/useMonthWorkouts';
 import { getWorkoutsForDate } from '../services/workoutsApi';
 
@@ -18,6 +19,7 @@ interface CalendarPageProps {
 export function CalendarPage({ onDayClick, onMonthChange, workoutDays = [], savedWorkouts = new Map() }: CalendarPageProps) {
   const { openProfileSheet } = useProfileSheet();
   const { openSettingsSheet } = useSettingsSheet();
+  const { openBugReportSheet } = useBugReportSheet();
   const queryClient = useQueryClient();
   const prefetchMonth = usePrefetchAdjacentMonths();
 
@@ -162,6 +164,7 @@ export function CalendarPage({ onDayClick, onMonthChange, workoutDays = [], save
               />
             </>
           }
+          onOpenBugReport={() => openBugReportSheet('Календарь')}
         />
       </div>
 

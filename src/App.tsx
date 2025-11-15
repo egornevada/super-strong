@@ -12,11 +12,13 @@ import { ExercisesPage } from './pages/ExercisesPage';
 import { CalendarPage } from './pages/CalendarPage';
 import { MyExercisesPage } from './pages/MyExercisesPage';
 import { DayDetailPage } from './pages/DayDetailPage';
+import { BugReportSheetProvider, useBugReportSheet } from './contexts/BugReportSheetContext';
 import { type Exercise } from './services/directusApi';
-import { type Set, UsernameModal, LoadingScreen } from './components';
+import { type Set, UsernameModal, LoadingScreen, Snackbar } from './components';
 import { ExerciseDetailSheetRenderer } from './components/SheetRenderer';
 import { ProfileSheetRenderer } from './components/ProfileSheetRenderer';
 import { SettingsSheetRenderer } from './components/SettingsSheetRenderer';
+import { BugReportSheetRenderer } from './components/BugReportSheetRenderer';
 import { recordProfileWorkout, recalculateStatsFromSavedWorkouts } from './lib/profileStats';
 import {
   getOrCreateUserByUsername,
@@ -28,7 +30,7 @@ import {
   createUserDay
 } from './services/supabaseApi';
 
-type PageType = 'calendar' | 'exercises' | 'tracking' | 'daydetail';
+type PageType = 'calendar' | 'exercises' | 'tracking' | 'daydetail' | 'bugreport';
 
 interface SelectedDate {
   day: number;
@@ -44,6 +46,7 @@ export default function App() {
   useTelegram();
   const { currentUser, setCurrentUser } = useUser();
   const queryClient = useQueryClient();
+  const { setOnBugReportSubmitted } = useBugReportSheet();
   const [currentPage, setCurrentPage] = useState<PageType>('calendar');
   const [showUsernameModal, setShowUsernameModal] = useState(false);
   const [usernameModalError, setUsernameModalError] = useState('');
@@ -53,12 +56,31 @@ export default function App() {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [currentLoadingStep, setCurrentLoadingStep] = useState('Загружаем данные пользователя');
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
+  const [showBugReportSnackbar, setShowBugReportSnackbar] = useState(false);
   const initializationAttempt = useRef(0);
 
   // Reset initialization attempt when user changes
   useEffect(() => {
     initializationAttempt.current = 0;
   }, [currentUser?.id]);
+
+  // Set up bug report submission callback
+  useEffect(() => {
+    setOnBugReportSubmitted(() => (onClose: () => void) => {
+      // Показываем snackbar (шит уже закроется автоматически)
+      setShowBugReportSnackbar(true);
+    });
+  }, [setOnBugReportSubmitted]);
+
+  // Auto-hide bug report snackbar after duration
+  useEffect(() => {
+    if (showBugReportSnackbar) {
+      const timer = setTimeout(() => {
+        setShowBugReportSnackbar(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [showBugReportSnackbar]);
 
   // Load workouts after user is initialized
   useEffect(() => {
@@ -776,7 +798,6 @@ export default function App() {
     }, 300);
   };
 
-
   // Log currentPage changes
   useEffect(() => {
     logger.warn('[PAGE] currentPage changed to:', { currentPage });
@@ -930,6 +951,7 @@ export default function App() {
             <ExerciseDetailSheetRenderer />
             <ProfileSheetRenderer />
             <SettingsSheetRenderer />
+            <BugReportSheetRenderer />
           </>
         ) : (
           <LoadingScreen
@@ -940,6 +962,14 @@ export default function App() {
           />
         )}
       </div>
+
+      {/* Bug Report Success Snackbar */}
+      <Snackbar
+        message="Отчет отправлен успешно"
+        isVisible={showBugReportSnackbar}
+        duration={5000}
+        variant="inverted"
+      />
 
       {/* Username Modal for non-Telegram users */}
       <UsernameModal

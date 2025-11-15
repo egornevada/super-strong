@@ -50,3 +50,7 @@ export type { } from './LoadingScreen/LoadingScreen';
 // Steps Slider
 export { StepsSlider } from './StepsSlider/StepsSlider';
 export type { StepsSliderProps } from './StepsSlider/StepsSlider';
+
+// Snackbar
+export { Snackbar } from './Snackbar';
+export type { SnackbarProps } from './Snackbar';

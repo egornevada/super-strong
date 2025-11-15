@@ -3,6 +3,7 @@ import { Button, AlertDialog, HeaderWithBackButton, SessionCard, type WorkoutSes
 import { logger } from '../lib/logger'
 import { getWorkoutSessionsWithCount } from '../services/workoutsApi'
 import { useOptimisticDeleteWorkout } from '../hooks/useOptimisticDeleteWorkout'
+import { useBugReportSheet } from '../contexts/BugReportSheetContext'
 import AddRounded from '@mui/icons-material/AddRounded'
 
 interface SelectedDate {
@@ -28,6 +29,7 @@ export function DayDetailPage({
   onStartNewWorkout,
   onOpenWorkout
 }: DayDetailPageProps) {
+  const { openBugReportSheet } = useBugReportSheet();
   const [sessions, setSessions] = useState<WorkoutSession[]>([])
   const [loading, setLoading] = useState(true)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
@@ -161,6 +163,7 @@ export function DayDetailPage({
         <HeaderWithBackButton
           backButtonLabel={dateLabel}
           onBack={onBack}
+          onOpenBugReport={() => openBugReportSheet('День')}
         />
       </div>
 

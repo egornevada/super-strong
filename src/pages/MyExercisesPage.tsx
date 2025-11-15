@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { HeaderWithBackButton, Button, TrackCard, type Set } from '../components';
 import { type Exercise } from '../services/directusApi';
 import { useExerciseDetailSheet } from '../contexts/SheetContext';
+import { useBugReportSheet } from '../contexts/BugReportSheetContext';
 import { useUser } from '../contexts/UserContext';
 import { convertExerciseToApiFormat, createAndSaveWorkoutSession, updateWorkoutSessionExercises, deleteWorkoutSessionWithExercises } from '../services/workoutsApi';
 import { logger } from '../lib/logger';
@@ -42,6 +43,7 @@ export function MyExercisesPage({
   workoutStartTime
 }: MyExercisesPageProps) {
   const { currentUser } = useUser();
+  const { openBugReportSheet } = useBugReportSheet();
 
   logger.info('[TRACKING] MyExercisesPage mounted/updated', {
     selectedExercisesCount: selectedExercises?.length,
@@ -304,6 +306,7 @@ export function MyExercisesPage({
           backButtonLabel={`${selectedDate.day} ${monthNames[selectedDate.month]}`}
           onBack={handleBackToCalendar}
           isLoading={isLoadingWithDelay}
+          onOpenBugReport={() => openBugReportSheet('Мои упражнения')}
         />
       </div>
 
