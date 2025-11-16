@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: super-strong-postgres
+    environment:
+      POSTGRES_DB: super_strong
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres_local_dev}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  supabase:
+    image: supabase/supabase:latest
+    container_name: super-strong-supabase
+    environment:
+      POSTGRES_DB: super_strong
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres_local_dev}
+      POSTGRES_HOST: postgres
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      JWT_EXPIRY: 3600
+      ENABLE_SIGNUP: "true"
+      SITE_URL: http://localhost:3000
+      API_URL: http://localhost:8000
+      DB_NAMESPACE: public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "54321:54321"  # REST API (PostgREST)
+      - "54322:54322"  # Realtime
+      - "5555:5555"    # Supabase Studio UI
+    volumes:
+      - supabase_data:/var/lib/supabase/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5555/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: super-strong-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  supabase_data:
+  redis_data:
+
+networks:
+  default:
+    name: super-strong-network

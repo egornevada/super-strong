@@ -1,0 +1,26 @@
+FROM python:3.14-slim
+
+WORKDIR /app
+
+# Установка зависимостей
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    postgresql-client \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Копирование requirements
+COPY requirements.txt .
+
+# Установка зависимостей
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Копирование приложения
+COPY app/ ./app/
+
+ENV PYTHONUNBUFFERED=1
+
+EXPOSE 8000
+
+# Uvicorn с reload для разработки
+CMD ["uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]

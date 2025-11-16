@@ -1,4 +1,5 @@
 import { logger } from '../lib/logger';
+import { api, saveJWTToken, clearJWTToken } from '../lib/api';
 import {
   User,
   getUserByUsername as supabaseGetUserByUsername,
@@ -12,11 +13,70 @@ import {
 // Re-export Supabase User interface as UserData for compatibility
 export type UserData = User;
 
+/**
+ * Backend auth response interface
+ */
+interface BackendAuthResponse {
+  access_token: string;
+  token_type: string;
+  user: {
+    id: string;
+    telegram_id?: string | number;
+    username: string;
+    first_name?: string;
+    last_name?: string;
+    created_at?: string;
+    updated_at?: string;
+  };
+}
+
 export interface CreateUserPayload {
   telegram_id?: number;
   username: string;
   first_name?: string;
   last_name?: string;
+}
+
+/**
+ * Authenticate user via Telegram WebApp with backend
+ * Sends initData to backend, receives JWT token
+ */
+export async function authenticateWithTelegram(initData: string): Promise<{ user: UserData; token: string }> {
+  try {
+    logger.debug('Authenticating with Telegram backend', { hasInitData: !!initData });
+
+    // Call backend Telegram auth endpoint
+    const response = await api.post<BackendAuthResponse>('/auth/telegram', {
+      init_data: initData
+    });
+
+    if (!response?.access_token || !response?.user) {
+      throw new Error('Invalid response from backend auth endpoint');
+    }
+
+    // Save JWT token for subsequent API calls
+    saveJWTToken(response.access_token);
+    logger.info('Telegram auth successful', { userId: response.user.id });
+
+    // Convert backend user response to UserData format
+    const userData: UserData = {
+      id: response.user.id,
+      username: response.user.username,
+      telegram_id: response.user.telegram_id,
+      first_name: response.user.first_name,
+      last_name: response.user.last_name,
+      created_at: response.user.created_at,
+      updated_at: response.user.updated_at
+    } as UserData;
+
+    return {
+      user: userData,
+      token: response.access_token
+    };
+  } catch (error) {
+    logger.error('Telegram authentication failed', { error });
+    throw error;
+  }
 }
 
 /**
@@ -157,11 +217,12 @@ export function getUserSession(): { userId: string; username: string; telegramId
 }
 
 /**
- * Clear user session
+ * Clear user session and JWT token
  */
 export function clearUserSession(): void {
   localStorage.removeItem('super-strong-user-session');
-  logger.debug('User session cleared');
+  clearJWTToken();
+  logger.debug('User session and JWT token cleared');
 }
 
 /**

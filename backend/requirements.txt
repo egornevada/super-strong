@@ -1,0 +1,49 @@
+# FastAPI и асинхронные зависимости
+fastapi==0.115.4
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+pydantic-settings==2.6.1
+
+# Асинхронный HTTP клиент
+httpx==0.27.2
+aiofiles==24.1.0
+
+# ORM и работа с БД
+sqlmodel==0.0.21
+psycopg2-binary==2.9.10
+asyncpg==0.30.0
+greenlet==3.1.1
+alembic==1.13.3
+
+# Authentication и Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+cryptography==43.0.0
+
+# Telegram
+python-telegram-bot==21.9
+
+# Redis (для WebSocket и кеширования)
+redis==5.3.1
+aioredis==2.0.1
+
+# Валидация Telegram initData
+python-dateutil==2.8.2
+
+# Утилиты
+python-multipart==0.0.9
+python-dotenv==1.0.1
+
+# CORS
+fastapi-cors==0.0.6
+
+# Логирование (опционально, для лучшего дебаггинга)
+python-json-logger==3.2.1
+
+# Development зависимости
+pytest==8.3.4
+pytest-asyncio==0.24.0
+black==24.10.0
+isort==5.13.2
+flake8==7.1.1
+mypy==1.14.1

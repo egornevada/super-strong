@@ -1,11 +1,17 @@
 /**
- * Minimal API client with Telegram initData support
- * Handles offline mode, retries, and logging
+ * Minimal API client with JWT token & Telegram initData support
+ * Handles offline mode, retries, logging, and backend authentication
  */
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://strong.webtga.ru/workouts/api';
+// For development: use Python backend on localhost:8001
+// For production: use original API
+const isDev = import.meta.env.DEV;
+const API_BASE = isDev
+  ? 'http://localhost:8001/api/v1'  // Python FastAPI backend
+  : (import.meta.env.VITE_API_URL || 'https://strong.webtga.ru/workouts/api');
 const OFFLINE_CACHE_KEY = 'api_offline_cache';
 const PENDING_REQUESTS_KEY = 'api_pending_requests';
+const JWT_TOKEN_KEY = 'super-strong-jwt-token'; // Store JWT token from backend auth
 
 interface CacheEntry {
   data: unknown;
@@ -159,6 +165,42 @@ export function clearPendingRequests(): void {
 }
 
 /**
+ * Get stored JWT token from backend auth
+ */
+function getJWTToken(): string | null {
+  try {
+    return localStorage.getItem(JWT_TOKEN_KEY);
+  } catch (e) {
+    console.warn('[API] Error reading JWT token:', e);
+    return null;
+  }
+}
+
+/**
+ * Save JWT token from backend response
+ */
+export function saveJWTToken(token: string): void {
+  try {
+    localStorage.setItem(JWT_TOKEN_KEY, token);
+    console.log('[API] JWT token saved');
+  } catch (e) {
+    console.warn('[API] Error saving JWT token:', e);
+  }
+}
+
+/**
+ * Clear JWT token on logout
+ */
+export function clearJWTToken(): void {
+  try {
+    localStorage.removeItem(JWT_TOKEN_KEY);
+    console.log('[API] JWT token cleared');
+  } catch (e) {
+    console.warn('[API] Error clearing JWT token:', e);
+  }
+}
+
+/**
  * Main API request function
  * @param path - API path
  * @param init - RequestInit with stringified body for fetch
@@ -172,7 +214,16 @@ async function request<T>(
   const url = buildUrl(path);
   const headers = new Headers(init.headers || {});
 
-  // Add Telegram initData if available
+  // Add JWT token in query parameter if available (for backend auth)
+  let finalUrl = url;
+  const jwtToken = getJWTToken();
+  if (jwtToken && isDev) {
+    // For development backend: add JWT token as query parameter
+    const separator = url.includes('?') ? '&' : '?';
+    finalUrl = `${url}${separator}token=${encodeURIComponent(jwtToken)}`;
+  }
+
+  // Add Telegram initData if available (legacy, for fallback)
   const initData = getTelegramInitData();
   const hasInitData = !!initData;
   if (initData) {
@@ -187,21 +238,22 @@ async function request<T>(
   const method = init.method || 'GET';
 
   // Debug logging
-  console.log(`[API] ${method} ${url}`, {
+  console.log(`[API] ${method} ${finalUrl}`, {
     hasInitData,
+    hasJWT: !!jwtToken,
     hasBody: !!init.body,
     bodyType: typeof init.body,
     bodyPreview: init.body ? (typeof init.body === 'string' ? (init.body as string).substring(0, 100) : 'object') : undefined
   });
 
   try {
-    const res = await fetch(url, {
+    const res = await fetch(finalUrl, {
       ...init,
       headers,
       cache: 'no-cache'
     });
 
-    console.log(`[API] ${method} ${url} - Status: ${res.status}`);
+    console.log(`[API] ${method} ${finalUrl} - Status: ${res.status}`);
 
     if (!res.ok) {
       const errorText = await res.text().catch(() => res.statusText);
@@ -212,7 +264,7 @@ async function request<T>(
     // Handle empty response (common for DELETE requests)
     const text = await res.text();
     const data = text ? (JSON.parse(text) as T) : (null as T);
-    console.log(`[API] ${method} ${url} - Success`, data);
+    console.log(`[API] ${method} ${finalUrl} - Success`, data);
 
     // Cache successful read requests
     if (method === 'GET') {
@@ -221,7 +273,7 @@ async function request<T>(
 
     return data;
   } catch (error) {
-    console.error(`[API] ${method} ${url} - Failed:`, error);
+    console.error(`[API] ${method} ${finalUrl} - Failed:`, error);
 
     // Try to return cached data on error
     const cached = getCache(path);

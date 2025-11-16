@@ -16,6 +16,17 @@ uploads/
 CLAUDE.md
 docker-compose.yml
 
+# Supabase related files (security: secrets, local data)
+.supabase/
+supabase-docker/
+supabase/.env
+supabase/.env.local
+supabase_data/
+supabase.log
+.supabase.log
+postgres_data/
+redis_data/
+
 # Environment files
 .env.local
 .env.*.local

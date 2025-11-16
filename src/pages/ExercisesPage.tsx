@@ -43,15 +43,22 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
       try {
         setLoading(true);
         setError(null);
-        const exercisesData = await fetchExercises();
+
+        // Загружаем упражнения и категории ПАРАЛЛЕЛЬНО
+        const [exercisesData, categoriesDataResult] = await Promise.all([
+          fetchExercises(),
+          fetchCategories().catch((err) => {
+            console.warn('Failed to load categories, deriving from exercises:', err);
+            return null;
+          })
+        ]);
+
         setExercises(exercisesData);
 
-        // Пытаемся загрузить категории
-        try {
-          const categoriesData = await fetchCategories();
-          setCategories(categoriesData.length > 0 ? categoriesData : ['Грудь']);
-        } catch (categoryErr) {
-          console.warn('Failed to load categories, deriving from exercises:', categoryErr);
+        // Если категории загружены, используем их. Иначе извлекаем из упражнений
+        if (categoriesDataResult && categoriesDataResult.length > 0) {
+          setCategories(categoriesDataResult);
+        } else {
           // Извлекаем уникальные категории из упражнений
           const uniqueCategories = Array.from(
             new Set(exercisesData.map((ex) => ex.category))

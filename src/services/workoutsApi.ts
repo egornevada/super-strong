@@ -1,10 +1,12 @@
 /**
  * SIMPLIFIED Workouts API service
  * Linear, predictable flow with one path for everything
+ * Supports both Supabase (legacy) and FastAPI backend (new)
  */
 
 import { logger } from '../lib/logger';
 import { getUserSession } from './authApi';
+import { api } from '../lib/api';
 import {
   getUserDayByDate,
   getUserDaysForMonth,
@@ -39,13 +41,176 @@ interface ExerciseData {
   sets: WorkoutSet[];
 }
 
+/**
+ * Backend Workout Response Interface
+ */
+interface BackendWorkoutResponse {
+  id: number;
+  user_id: string | number;
+  date: string;
+  total_weight: number;
+  total_sets: number;
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/**
+ * Backend Exercise Response Interface
+ */
+interface BackendExerciseResponse {
+  id: number;
+  workout_id: number;
+  exercise_id: string;
+  weight: number;
+  sets: number;
+  reps: number;
+  notes?: string;
+  order: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 // Export types
 export type SavedWorkout = UserDayType;
 export type WorkoutSetData = UserDayExerciseSet;
 export type WorkoutSessionWithExerciseCount = UserDayWorkout & { exerciseCount: number };
 
 // ============================================================================
-// CORE FUNCTIONS - Simple, Linear Logic
+// BACKEND FUNCTIONS - FastAPI Backend Integration (New)
+// ============================================================================
+
+/**
+ * Create a workout on the backend
+ * POST /api/v1/workouts
+ */
+export async function createWorkoutOnBackend(
+  date: string,
+  totalWeight?: number,
+  totalSets?: number,
+  notes?: string
+): Promise<BackendWorkoutResponse> {
+  try {
+    logger.debug('Creating workout on backend', { date });
+
+    const response = await api.post<BackendWorkoutResponse>('/workouts', {
+      date,
+      total_weight: totalWeight || 0,
+      total_sets: totalSets || 0,
+      notes: notes || ''
+    });
+
+    if (!response?.id) {
+      throw new Error('Invalid response from backend');
+    }
+
+    logger.info('Workout created on backend', { workoutId: response.id, date });
+    return response;
+  } catch (error) {
+    logger.error('Failed to create workout on backend', { date, error });
+    throw error;
+  }
+}
+
+/**
+ * Get all workouts from backend
+ * GET /api/v1/workouts
+ */
+export async function getAllWorkoutsFromBackend(limit: number = 100, offset: number = 0): Promise<BackendWorkoutResponse[]> {
+  try {
+    logger.debug('Fetching all workouts from backend', { limit, offset });
+
+    const response = await api.get<BackendWorkoutResponse[]>(`/workouts?limit=${limit}&offset=${offset}`);
+
+    logger.info('Workouts fetched from backend', { count: response?.length || 0 });
+    return response || [];
+  } catch (error) {
+    logger.error('Failed to fetch workouts from backend', { error });
+    return [];
+  }
+}
+
+/**
+ * Delete workout from backend
+ * DELETE /api/v1/workouts/{workout_id}
+ */
+export async function deleteWorkoutFromBackend(workoutId: number): Promise<boolean> {
+  try {
+    logger.debug('Deleting workout from backend', { workoutId });
+
+    await api.delete(`/workouts/${workoutId}`);
+
+    logger.info('Workout deleted from backend', { workoutId });
+    return true;
+  } catch (error) {
+    logger.error('Failed to delete workout from backend', { workoutId, error });
+    return false;
+  }
+}
+
+/**
+ * Create exercise in workout on backend
+ * POST /api/v1/workouts/{workout_id}/exercises
+ */
+export async function createExerciseOnBackend(
+  workoutId: number,
+  exerciseId: string,
+  weight: number,
+  sets: number,
+  reps: number,
+  order: number = 1,
+  notes?: string
+): Promise<BackendExerciseResponse> {
+  try {
+    logger.debug('Creating exercise on backend', { workoutId, exerciseId });
+
+    const response = await api.post<BackendExerciseResponse>(
+      `/workouts/${workoutId}/exercises`,
+      {
+        exercise_id: exerciseId,
+        weight,
+        sets,
+        reps,
+        order,
+        notes: notes || ''
+      }
+    );
+
+    if (!response?.id) {
+      throw new Error('Invalid response from backend');
+    }
+
+    logger.info('Exercise created on backend', { exerciseId, workoutId });
+    return response;
+  } catch (error) {
+    logger.error('Failed to create exercise on backend', { workoutId, exerciseId, error });
+    throw error;
+  }
+}
+
+/**
+ * Get monthly statistics from backend
+ * GET /api/v1/workouts/statistics/monthly
+ */
+export async function getMonthlyStatisticsFromBackend(
+  year: number,
+  month: number
+): Promise<any> {
+  try {
+    logger.debug('Fetching monthly statistics from backend', { year, month });
+
+    const response = await api.get<any>(`/workouts/statistics/monthly?year=${year}&month=${month}`);
+
+    logger.info('Monthly statistics fetched from backend', { year, month });
+    return response || {};
+  } catch (error) {
+    logger.error('Failed to fetch monthly statistics from backend', { year, month, error });
+    return {};
+  }
+}
+
+// ============================================================================
+// CORE FUNCTIONS - Simple, Linear Logic (Supabase - Legacy)
 // ============================================================================
 
 /**
