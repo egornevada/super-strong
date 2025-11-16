@@ -3,7 +3,6 @@ import { useEffect } from 'react';
 import { Button } from '../main/Button';
 import { Loader } from '../loaders/Loader';
 import EventRoundedIcon from '@mui/icons-material/EventRounded';
-import logoTextSvg from '../../assets/icons/Logo Only text.svg';
 import logoSvg from '../../assets/icons/Logo.svg';
 import logoErrorSvg from '../../assets/icons/Logo Error.svg';
 

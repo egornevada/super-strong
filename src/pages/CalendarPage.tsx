@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
-import { useQueries, useQueryClient } from '@tanstack/react-query';
-import { Header, Calendar, Button, Loader } from '../components';
+import { useState, useMemo } from 'react';
+import { useQueries } from '@tanstack/react-query';
+import { Header, Calendar, Button } from '../components';
 import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import { useProfileSheet } from '../contexts/ProfileSheetContext';
@@ -20,7 +20,6 @@ export function CalendarPage({ onDayClick, onMonthChange, workoutDays = [], save
   const { openProfileSheet } = useProfileSheet();
   const { openSettingsSheet } = useSettingsSheet();
   const { openBugReportSheet } = useBugReportSheet();
-  const queryClient = useQueryClient();
   const prefetchMonth = usePrefetchAdjacentMonths();
 
   const today = new Date();
