@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import { FilterPill, ExerciseCard, Button, HeaderWithBackButton, StickyTagsBar, ErrorPage } from '../components';
-import { fetchExercises, fetchCategories, type Exercise } from '../services/directusApi';
+import { fetchBatchInitData, fetchExercises, fetchCategories, type Exercise } from '../services/directusApi';
 import { useExerciseDetailSheet } from '../contexts/SheetContext';
 import { useBugReportSheet } from '../contexts/BugReportSheetContext';
 import ArrowCircleRightRounded from '@mui/icons-material/ArrowCircleRightRounded';
@@ -44,26 +44,28 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
         setLoading(true);
         setError(null);
 
-        // Загружаем упражнения и категории ПАРАЛЛЕЛЬНО
-        const [exercisesData, categoriesDataResult] = await Promise.all([
-          fetchExercises(),
-          fetchCategories().catch((err) => {
-            console.warn('Failed to load categories, deriving from exercises:', err);
-            return null;
-          })
-        ]);
+        // Используем batch endpoint для загрузки ВСЕГО в одном запросе
+        try {
+          const { exercises: exercisesData, categories: categoriesData } = await fetchBatchInitData();
+          setExercises(exercisesData);
+          setCategories(categoriesData.length > 0 ? categoriesData : ['Грудь']);
+        } catch (batchErr) {
+          // Fallback: если batch endpoint не работает, загружаем отдельно
+          console.warn('Batch endpoint failed, falling back to separate requests:', batchErr);
+          const [exercisesData, categoriesDataResult] = await Promise.all([
+            fetchExercises(),
+            fetchCategories().catch(() => null)
+          ]);
 
-        setExercises(exercisesData);
-
-        // Если категории загружены, используем их. Иначе извлекаем из упражнений
-        if (categoriesDataResult && categoriesDataResult.length > 0) {
-          setCategories(categoriesDataResult);
-        } else {
-          // Извлекаем уникальные категории из упражнений
-          const uniqueCategories = Array.from(
-            new Set(exercisesData.map((ex) => ex.category))
-          ).sort();
-          setCategories(uniqueCategories.length > 0 ? uniqueCategories : ['Грудь']);
+          setExercises(exercisesData);
+          if (categoriesDataResult && categoriesDataResult.length > 0) {
+            setCategories(categoriesDataResult);
+          } else {
+            const uniqueCategories = Array.from(
+              new Set(exercisesData.map((ex) => ex.category))
+            ).sort();
+            setCategories(uniqueCategories.length > 0 ? uniqueCategories : ['Грудь']);
+          }
         }
       } catch (err) {
         console.error('Error loading exercises:', err);

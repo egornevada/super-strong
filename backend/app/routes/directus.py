@@ -17,6 +17,35 @@ router = APIRouter(prefix="/api/v1", tags=["exercises-catalog"])
 
 # ========== ВАЖНО: Специфичные маршруты должны быть ДО параметризованных ==========
 
+@router.get("/batch/init")
+async def batch_init_data():
+    """
+    Batch endpoint для загрузки упражнений и категорий ПАРАЛЛЕЛЬНО.
+    Используется при инициализации приложения для быстрой загрузки.
+
+    Returns: {exercises: [...], categories: [...]}
+    """
+    try:
+        # Загружаем упражнения и категории ОДНОВРЕМЕННО (параллельно)
+        import asyncio
+        exercises, categories = await asyncio.gather(
+            DirectusService.get_exercises(),
+            DirectusService.get_exercise_categories(),
+            return_exceptions=False
+        )
+
+        return {
+            "exercises": exercises if exercises else [],
+            "categories": categories if categories else [],
+        }
+    except Exception as e:
+        logger.error(f"Batch init error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Ошибка при загрузке данных: {str(e)}",
+        )
+
+
 @router.get("/health-check")
 async def health_check():
     """Проверить соединение с Directus"""

@@ -2,6 +2,7 @@ import { api } from '../lib/api';
 import { logger } from '../lib/logger';
 
 const DIRECTUS_URL = import.meta.env.VITE_API_URL || "http://localhost:8055";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8001";
 
 export interface Step {
   image?: {
@@ -174,16 +175,10 @@ export async function fetchCategories(): Promise<string[]> {
       '/items/categories?fields=id,name&limit=-1'
     );
 
-    console.log('[directusApi] fetchCategories response:', response);
-
     const data = Array.isArray(response) ? response : (response?.data || []);
-
-    console.log('[directusApi] fetchCategories data:', data);
 
     // Получаем названия всех категорий
     const categories = data.map((item: any) => item.name);
-
-    console.log('[directusApi] fetchCategories result:', categories);
 
     return categories.sort();
   } catch (error) {
@@ -257,6 +252,62 @@ export async function fetchExerciseById(id: string): Promise<Exercise> {
     };
   } catch (error) {
     logger.error("Failed to fetch exercise by ID from Directus:", error);
+    throw error;
+  }
+}
+
+/**
+ * Batch load exercises and categories in parallel (single request)
+ * Optimized for initial app load
+ */
+export async function fetchBatchInitData(): Promise<{
+  exercises: Exercise[];
+  categories: string[];
+}> {
+  try {
+    const response = await api.get<{
+      exercises: any[];
+      categories: string[];
+    }>('/batch/init');
+
+    const exercises = (response?.exercises || []).map((item: any) => {
+      // Transform Directus format to Exercise format (same as fetchExercises)
+      let imageData = undefined;
+      if (item.image) {
+        const imageId = typeof item.image === 'string' ? item.image : item.image.id;
+        const imageTitle = typeof item.image === 'object' ? item.image.title : null;
+        imageData = {
+          url: `${DIRECTUS_URL}/assets/${imageId}`,
+          alternativeText: imageTitle || item.name,
+        };
+      } else if (item.step_1_image) {
+        const imageId = typeof item.step_1_image === 'string' ? item.step_1_image : item.step_1_image.id;
+        const imageTitle = typeof item.step_1_image === 'object' ? item.step_1_image.title : null;
+        imageData = {
+          url: `${DIRECTUS_URL}/assets/${imageId}`,
+          alternativeText: imageTitle || item.name,
+        };
+      }
+
+      return {
+        id: String(item.id),
+        name: item.name || "",
+        category: item.category?.name || "Без категории",
+        description: item.description || "",
+        image: imageData,
+      };
+    });
+
+    const categories = (response?.categories || []).sort();
+
+    logger.info('Batch init data loaded', {
+      exercisesCount: exercises.length,
+      categoriesCount: categories.length
+    });
+
+    return { exercises, categories };
+  } catch (error) {
+    logger.error("Failed to fetch batch init data:", error);
     throw error;
   }
 }

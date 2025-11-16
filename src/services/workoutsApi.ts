@@ -498,12 +498,21 @@ export async function getWorkoutSessionExercises(workoutSessionId: string): Prom
       };
     }
 
-    // Get sets for each exercise
+    // Load all sets in PARALLEL instead of sequentially
+    const setsPromises = exercises.map(exercise =>
+      getUserDayExerciseSets(exercise.id)
+        .then(sets => ({ exerciseId: exercise.id, sets }))
+        .catch(error => {
+          logger.warn('Failed to get sets for exercise', { exerciseId: exercise.id, error });
+          return { exerciseId: exercise.id, sets: [] };
+        })
+    );
+
+    const setsResults = await Promise.all(setsPromises);
     const exercisesSets = new Map<string, WorkoutSetData[]>();
-    for (const exercise of exercises) {
-      const sets = await getUserDayExerciseSets(exercise.id);
-      exercisesSets.set(exercise.id, sets);
-    }
+    setsResults.forEach(({ exerciseId, sets }) => {
+      exercisesSets.set(exerciseId, sets);
+    });
 
     logger.info('Workout session exercises fetched', {
       workoutSessionId,
