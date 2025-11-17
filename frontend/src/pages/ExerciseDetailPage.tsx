@@ -5,6 +5,8 @@ import { StepsSlider } from '../components/StepsSlider/StepsSlider'
 import { fetchExerciseById, type Exercise } from '../services/directusApi'
 import { useExerciseDetailSheet } from '../contexts/SheetContext'
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded'
+import AddRounded from '@mui/icons-material/AddRounded'
+import ClearRounded from '@mui/icons-material/ClearRounded'
 
 interface ExerciseDetailPageProps {
   exerciseId: string
@@ -20,6 +22,8 @@ export function ExerciseDetailPage({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showDeleteAlert, setShowDeleteAlert] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [isExerciseAdded, setIsExerciseAdded] = useState(sheet.isExerciseAdded ?? false)
 
   useEffect(() => {
     const loadExercise = async () => {
@@ -38,6 +42,13 @@ export function ExerciseDetailPage({
 
     loadExercise()
   }, [exerciseId])
+
+  // Sync exercise added state with sheet
+  useEffect(() => {
+    if (sheet.isExerciseAdded !== undefined) {
+      setIsExerciseAdded(sheet.isExerciseAdded)
+    }
+  }, [sheet.isExerciseAdded])
 
   if (loading) {
     return (
@@ -67,6 +78,36 @@ export function ExerciseDetailPage({
     }
     closeSheet()
     onClose?.()
+  }
+
+  const handleAddExercise = async () => {
+    try {
+      setIsProcessing(true)
+      if (sheet.onAddExercise) {
+        sheet.onAddExercise()
+        setIsExerciseAdded(true)
+      }
+    } catch (err) {
+      console.error('Failed to add exercise:', err)
+      alert('Ошибка при добавлении упражнения')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  const handleRemoveExercise = async () => {
+    try {
+      setIsProcessing(true)
+      if (sheet.onRemoveExercise) {
+        sheet.onRemoveExercise()
+        setIsExerciseAdded(false)
+      }
+    } catch (err) {
+      console.error('Failed to remove exercise:', err)
+      alert('Ошибка при удалении упражнения')
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   return (
@@ -124,14 +165,50 @@ export function ExerciseDetailPage({
           </div>
         )}
 
+        {/* Add/Remove button for exercises page */}
+        {(sheet.onAddExercise || sheet.onRemoveExercise) && (
+          <div className="mt-6 -mx-3 -mb-3">
+            <Button
+              priority="secondary"
+              tone={isExerciseAdded ? "default" : "default"}
+              size="md"
+              className="w-full"
+              style={{
+                borderRadius: '0',
+                margin: '0',
+                padding: '16px 12px',
+                border: 'none',
+                height: '64px',
+                ...(isExerciseAdded && {
+                  backgroundColor: '#1a1a1a',
+                  color: '#ffffff'
+                })
+              }}
+              leftIcon={isExerciseAdded ? <ClearRounded /> : <AddRounded />}
+              onClick={isExerciseAdded ? handleRemoveExercise : handleAddExercise}
+              disabled={isProcessing}
+            >
+              {isExerciseAdded ? 'Убрать упражнение' : 'Добавить упражнение'}
+            </Button>
+          </div>
+        )}
+
         {/* Delete button - if we have a delete callback */}
         {sheet.onDeleteExercise && (
-          <div className="mt-6 pt-6 border-t border-stroke-1">
+          <div className="mt-6 -mx-3 -mb-3 border-t border-stroke-1">
             <Button
               priority="tertiary"
               tone="error"
               size="md"
               className="w-full"
+              style={{
+                borderRadius: '0',
+                margin: '0',
+                padding: '16px 12px 24px 12px',
+                border: 'none',
+                borderTop: '1px solid var(--stroke-1)',
+                height: '64px'
+              }}
               leftIcon={<DeleteOutlineRounded />}
               onClick={handleDeleteClick}
             >

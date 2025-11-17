@@ -32,9 +32,27 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
   const [showStickyBar, setShowStickyBar] = useState(false);
 
   const contentRef = useRef<HTMLDivElement>(null);
+  const isScrollingProgrammaticallyRef = useRef(false);
+
 
   const handleExerciseImageClick = (exerciseId: string) => {
-    openExerciseDetail(exerciseId);
+    const isExerciseAdded = selectedExercises.includes(exerciseId);
+
+    const onAddExercise = () => {
+      setSelectedExercises([...selectedExercises, exerciseId]);
+    };
+
+    const onRemoveExercise = () => {
+      setSelectedExercises(selectedExercises.filter(id => id !== exerciseId));
+    };
+
+    openExerciseDetail(
+      exerciseId,
+      undefined,  // no onDeleteExercise
+      onAddExercise,  // always pass both callbacks
+      onRemoveExercise,  // so user can toggle between add/remove
+      isExerciseAdded  // pass the current state
+    );
   };
 
   // Загружаем данные при монтировании компонента
@@ -101,36 +119,87 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
     );
     if (!el) return;
 
+    // Disable spy scroll and UI updates BEFORE scroll starts
+    isScrollingProgrammaticallyRef.current = true;
+
+    const targetScrollTop = el.offsetTop - STICKY_TOP;
+    let lastScrollTop = root.scrollTop;
+    let scrollCheckCount = 0;
+
+    const checkScrollComplete = () => {
+      const currentScrollTop = root.scrollTop;
+
+      // If scroll position hasn't changed, scroll is complete
+      if (currentScrollTop === lastScrollTop) {
+        scrollCheckCount++;
+        if (scrollCheckCount >= 2) {
+          // Scroll finished, update UI
+          setActiveCategory(categoryId);
+          isScrollingProgrammaticallyRef.current = false;
+          return;
+        }
+      } else {
+        scrollCheckCount = 0;
+      }
+
+      lastScrollTop = currentScrollTop;
+      requestAnimationFrame(checkScrollComplete);
+    };
+
     root.scrollTo({
-      top: el.offsetTop - STICKY_TOP,
+      top: targetScrollTop,
       behavior: 'smooth',
     });
+
+    // Check when scroll completes instead of using fixed timeout
+    requestAnimationFrame(checkScrollComplete);
   }, []);
 
-  // Observer for sentinel element to show sticky bar when cloud passes
+  // Show sticky bar when filter pills scroll out of view
   useEffect(() => {
-    if (loading) return;
+    if (loading || categories.length === 0) return;
     const root = contentRef.current;
     if (!root) return;
 
-    const sentinel = root.querySelector<HTMLElement>('#cloud-sentinel');
-    if (!sentinel) return;
+    // Use RAF to ensure DOM is fully rendered
+    let frameId: number;
+    let scrollListener: (() => void) | null = null;
 
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          setShowStickyBar(!entry.isIntersecting);
-        });
-      },
-      {
-        root,
-        threshold: 0,
+    const setupListener = () => {
+      const filterPills = root.querySelector<HTMLElement>('.flex.flex-wrap.gap-2');
+      if (!filterPills) {
+        // Retry if element not found
+        frameId = requestAnimationFrame(setupListener);
+        return;
       }
-    );
 
-    io.observe(sentinel);
-    return () => io.disconnect();
-  }, [loading]);
+      const handleScroll = () => {
+        // Skip if programmatically scrolling
+        if (isScrollingProgrammaticallyRef.current) return;
+
+        // Get the bottom position of filter pills
+        const filterRect = filterPills.getBoundingClientRect();
+        const filterBottom = filterRect.bottom;
+
+        // Show sticky bar when filter pills scroll past the top (they're no longer visible)
+        setShowStickyBar(filterBottom < 0);
+      };
+
+      scrollListener = handleScroll;
+      root.addEventListener('scroll', handleScroll, { passive: true });
+      // Initial call to set correct state
+      handleScroll();
+    };
+
+    frameId = requestAnimationFrame(setupListener);
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      if (scrollListener) {
+        root.removeEventListener('scroll', scrollListener);
+      }
+    };
+  }, [loading, categories.length]);
 
   // Spy по секциям - отслеживаем активную категорию
   useLayoutEffect(() => {
@@ -143,25 +212,54 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
     );
     if (!sections.length) return;
 
-    const io = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (!visible.length) return;
+    const handleScroll = () => {
+      // Skip spy scroll during programmatic scrolling
+      if (isScrollingProgrammaticallyRef.current) return;
 
-        const id = (visible[0].target as HTMLElement).dataset.categoryId;
-        if (id) setActiveCategory(id);
-      },
-      {
-        root,
-        threshold: [0, 0.25, 0.5],
-        rootMargin: `-${STICKY_TOP + 8}px 0px -60% 0px`,
+      const targetPosition = STICKY_TOP;
+      let activeSection: HTMLElement | null = null;
+
+      // Find first section that is visible at the top
+      for (let i = 0; i < sections.length; i++) {
+        const section = sections[i];
+        const rect = section.getBoundingClientRect();
+
+        // If section top is above target, or section contains target position
+        if (rect.top <= targetPosition && rect.bottom > targetPosition) {
+          activeSection = section;
+          break;
+        }
       }
-    );
 
-    sections.forEach((s) => io.observe(s));
-    return () => io.disconnect();
+      // If no section found, use the first one visible
+      if (!activeSection) {
+        for (let i = 0; i < sections.length; i++) {
+          const rect = sections[i].getBoundingClientRect();
+          if (rect.top < window.innerHeight) {
+            activeSection = sections[i];
+            break;
+          }
+        }
+      }
+
+      // If still no section, use the first one
+      if (!activeSection && sections.length > 0) {
+        activeSection = sections[0];
+      }
+
+      if (activeSection) {
+        const id = activeSection.dataset.categoryId;
+        if (id) setActiveCategory(id);
+      }
+    };
+
+    root.addEventListener('scroll', handleScroll, { passive: true });
+    // Initial call
+    handleScroll();
+
+    return () => {
+      root.removeEventListener('scroll', handleScroll);
+    };
   }, [loading, categories.length]);
 
   // Форматирование даты
@@ -218,9 +316,14 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
         />
       </div>
 
-      {/* Sticky tags bar - appears when scrolling */}
+      {/* Fixed sticky tags bar - appears when scrolling */}
       {showStickyBar && (
-        <div className="w-full bg-bg-1 border-b border-stroke-1 z-50">
+        <div
+          className="w-full bg-bg-1 border-b border-stroke-1 z-50 fixed left-0 right-0"
+          style={{
+            top: '64px',
+          }}
+        >
           <StickyTagsBar
             categories={categories}
             activeCategory={activeCategory}
@@ -235,7 +338,7 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
         className="flex-1 overflow-y-auto"
       >
           {/* Category filter cloud - scrolls with content */}
-          <div className="flex flex-wrap gap-2 px-3 pt-2 pb-3 mb-8">
+          <div className="flex flex-wrap gap-2 px-3 pt-2 pb-3">
             {categories.map((category) => (
               <FilterPill
                 key={category}
@@ -264,7 +367,7 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
                   <div
                     key={category}
                     data-category-id={category}
-                    className="px-3 mb-8"
+                    className="px-3 pt-[52px]"
                   >
                     {/* Category title */}
                     <h2 className="text-fg-1 text-heading-md mb-3">

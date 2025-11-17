@@ -4,11 +4,14 @@ export interface ExerciseDetailSheetState {
   isOpen: boolean
   exerciseId?: string
   onDeleteExercise?: () => void
+  onAddExercise?: () => void
+  onRemoveExercise?: () => void
+  isExerciseAdded?: boolean
 }
 
 interface ExerciseDetailSheetContextType {
   sheet: ExerciseDetailSheetState
-  openExerciseDetail: (exerciseId: string, onDeleteExercise?: () => void) => void
+  openExerciseDetail: (exerciseId: string, onDeleteExercise?: () => void, onAddExercise?: () => void, onRemoveExercise?: () => void, isExerciseAdded?: boolean) => void
   closeSheet: () => void
 }
 
@@ -19,11 +22,14 @@ export function ExerciseDetailSheetProvider({ children }: { children: ReactNode 
     isOpen: false,
   })
 
-  const openExerciseDetail = (exerciseId: string, onDeleteExercise?: () => void) => {
+  const openExerciseDetail = (exerciseId: string, onDeleteExercise?: () => void, onAddExercise?: () => void, onRemoveExercise?: () => void, isExerciseAdded?: boolean) => {
     setSheet({
       isOpen: true,
       exerciseId,
       onDeleteExercise,
+      onAddExercise,
+      onRemoveExercise,
+      isExerciseAdded,
     })
   }
 
@@ -32,6 +38,9 @@ export function ExerciseDetailSheetProvider({ children }: { children: ReactNode 
       isOpen: false,
       exerciseId: undefined,
       onDeleteExercise: undefined,
+      onAddExercise: undefined,
+      onRemoveExercise: undefined,
+      isExerciseAdded: undefined,
     })
   }
 

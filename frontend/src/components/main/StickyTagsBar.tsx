@@ -28,7 +28,7 @@ export const StickyTagsBar = React.forwardRef<HTMLDivElement, StickyTagsBarProps
       >
         <div
           ref={scrollContainerRef}
-          className="flex gap-2 px-4 overflow-x-auto scrollbar-hide"
+          className="flex gap-2 px-3 overflow-x-auto scrollbar-hide"
         >
           {categories.map((category) => {
             const isActive = activeCategory === category;
