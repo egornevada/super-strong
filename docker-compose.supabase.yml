@@ -17,6 +17,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - super-strong-network
 
   redis:
     image: redis:7-alpine
@@ -30,6 +32,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - super-strong-network
 
   vector:
     image: timberio/vector:0.34.1-alpine
@@ -44,19 +48,24 @@ services:
     image: supabase/studio:latest
     container_name: supabase-studio
     environment:
-      SUPABASE_URL: ${SUPABASE_URL:-http://localhost:8000}
-      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-your-anon-key-here}
-      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-your-service-role-key-here}
+      SUPABASE_URL: ${SUPABASE_URL:-http://supabase_kong_super-strong:8000}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0YnJlZWFsdGVzdCIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNjk0NzEzMjAwLCJleHAiOjE4NTI0NzkyMDB9.kWsvT-x5mNGF9KzIMmqzh1F_t3y8jBfGzfQQMFJ3hjE}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz}
     ports:
       - "5555:3000"
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - super-strong-network
+      - supabase_network_super-strong
 
 volumes:
   postgres_data:
   redis_data:
 
 networks:
-  default:
-    name: super-strong-network
+  super-strong-network:
+    driver: bridge
+  supabase_network_super-strong:
+    external: true
