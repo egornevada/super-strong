@@ -47,7 +47,7 @@ class SupabaseWorkoutService:
                 elif method == "PUT":
                     response = await client.put(url, headers=headers, json=data)
                 elif method == "DELETE":
-                    response = await client.delete(url, headers=headers)
+                    response = await client.delete(url, headers=headers, params=params)
                 else:
                     raise ValueError(f"Unsupported method: {method}")
 
