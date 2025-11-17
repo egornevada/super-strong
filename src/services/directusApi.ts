@@ -1,8 +1,8 @@
 import { api } from '../lib/api';
 import { logger } from '../lib/logger';
 
-const DIRECTUS_URL = import.meta.env.VITE_API_URL || "http://localhost:8055";
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8001";
+const DIRECTUS_URL = import.meta.env.VITE_DIRECTUS_URL || "https://directus.webtga.ru";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export interface Step {
   image?: {
@@ -202,6 +202,12 @@ export async function fetchExerciseById(id: string): Promise<Exercise> {
     if (!data) {
       throw new Error(`Exercise with id ${id} not found`);
     }
+
+    logger.info(`Fetched exercise ${id}:`, {
+      name: data.name,
+      categoryType: typeof data.category,
+      category: data.category
+    });
 
     // Собираем шаги из полей step_N_image, step_N_title, step_N_description
     const steps: Step[] = [];

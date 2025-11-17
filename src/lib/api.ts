@@ -3,11 +3,11 @@
  * Handles offline mode, retries, logging, and backend authentication
  */
 
-// For development: use Python backend on localhost:8001
+// For development: use Python backend on localhost:8000
 // For production: use original API
 const isDev = import.meta.env.DEV;
 const API_BASE = isDev
-  ? 'http://localhost:8001/api/v1'  // Python FastAPI backend
+  ? 'http://localhost:8000/api/v1'  // Python FastAPI backend
   : (import.meta.env.VITE_API_URL || 'https://strong.webtga.ru/workouts/api');
 const OFFLINE_CACHE_KEY = 'api_offline_cache';
 const PENDING_REQUESTS_KEY = 'api_pending_requests';

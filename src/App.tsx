@@ -470,13 +470,27 @@ export default function App() {
           allExercises
         );
 
-        // Merge with existing saved workouts (for calendar stats per month)
+        // Replace (not merge) saved workouts for this month - prevents duplication
+        // This ensures fresh data from server overwrites any stale local data
         setSavedWorkouts((prev) => {
-          const merged = new Map(prev);
-          monthWorkoutData.forEach((exercises, dateKey) => {
-            merged.set(dateKey, exercises);
+          const updated = new Map(prev);
+          // Clear all entries for this month first, then add new ones
+          // This prevents accumulation of exercises from multiple loads
+          Array.from(updated.keys()).forEach(dateKey => {
+            const parts = dateKey.split('-');
+            if (parts.length === 3) {
+              const entryMonth = parseInt(parts[1], 10);
+              const entryYear = parseInt(parts[2], 10);
+              if (entryYear === targetYear && entryMonth === targetMonth) {
+                updated.delete(dateKey);
+              }
+            }
           });
-          return merged;
+          // Now add the fresh data from server
+          monthWorkoutData.forEach((exercises, dateKey) => {
+            updated.set(dateKey, exercises);
+          });
+          return updated;
         });
 
         logger.info('Month workout data loaded for calendar', {

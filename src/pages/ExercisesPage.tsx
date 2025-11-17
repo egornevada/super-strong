@@ -48,7 +48,11 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
         try {
           const { exercises: exercisesData, categories: categoriesData } = await fetchBatchInitData();
           setExercises(exercisesData);
-          setCategories(categoriesData.length > 0 ? categoriesData : ['Грудь']);
+          // Backend возвращает категории как массив объектов {id, name}, извлекаем только имена
+          const categoryNames = Array.isArray(categoriesData) && categoriesData.length > 0
+            ? categoriesData.map((cat: any) => typeof cat === 'string' ? cat : cat.name)
+            : ['Грудь'];
+          setCategories(categoryNames);
         } catch (batchErr) {
           // Fallback: если batch endpoint не работает, загружаем отдельно
           console.warn('Batch endpoint failed, falling back to separate requests:', batchErr);

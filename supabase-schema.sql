@@ -60,7 +60,8 @@ CREATE TABLE user_day_workouts (
   user_day_id UUID NOT NULL REFERENCES user_days(id) ON DELETE CASCADE,
   started_at TIMESTAMP WITH TIME ZONE NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, user_day_id)
 );
 
 -- User day workout exercises table (exercises in a workout session)

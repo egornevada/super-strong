@@ -28,15 +28,36 @@ async def batch_init_data():
     try:
         # Загружаем упражнения и категории ОДНОВРЕМЕННО (параллельно)
         import asyncio
-        exercises, categories = await asyncio.gather(
+        exercises_response, categories_response = await asyncio.gather(
             DirectusService.get_exercises(),
             DirectusService.get_exercise_categories(),
             return_exceptions=False
         )
 
+        # Извлекаем .data из Directus ответов (Directus возвращает {data: [...]})
+        exercises = exercises_response.get("data", []) if exercises_response else []
+        categories = categories_response.get("data", []) if categories_response else []
+
+        # Создаём map категорий ID -> Name для быстрого поиска
+        category_map = {cat.get("id"): cat.get("name") for cat in categories}
+
+        # Трансформируем упражнения - заменяем ID категории на объект с name
+        transformed_exercises = []
+        for exercise in exercises:
+            transformed = exercise.copy()
+            # Если category это ID (число), заменяем на объект {id, name}
+            if isinstance(transformed.get("category"), (int, str)):
+                category_id = transformed.get("category")
+                category_name = category_map.get(category_id, "Без категории")
+                transformed["category"] = {
+                    "id": category_id,
+                    "name": category_name
+                }
+            transformed_exercises.append(transformed)
+
         return {
-            "exercises": exercises if exercises else [],
-            "categories": categories if categories else [],
+            "exercises": transformed_exercises,
+            "categories": categories,
         }
     except Exception as e:
         logger.error(f"Batch init error: {e}")

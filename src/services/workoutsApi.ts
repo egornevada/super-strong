@@ -302,7 +302,7 @@ export async function getWorkoutSessionsWithCount(userDayId: string): Promise<Wo
 
 /**
  * Create a workout session AND save all exercises with sets in one operation
- * OPTIMIZED: Uses Promise.all for parallel saving of exercises and sets
+ * NOW USES BACKEND API instead of direct Supabase calls
  * THIS IS THE MAIN SAVE FUNCTION - Used by MyExercisesPage
  */
 export async function createAndSaveWorkoutSession(
@@ -311,78 +311,35 @@ export async function createAndSaveWorkoutSession(
   exercises: ExerciseData[]
 ): Promise<string> {
   try {
-    logger.debug('Creating workout session and saving exercises', {
+    logger.debug('Creating workout session and saving exercises via backend', {
       userDayId,
       exerciseCount: exercises.length
     });
 
-    // Step 1: Create the workout session
-    const startedAt = new Date().toISOString();
-    const session = await createWorkoutSession(userId, userDayId, startedAt);
-    logger.debug('Workout session created', { sessionId: session.id, startedAt });
-
-    // Step 2: Load all Supabase exercises in PARALLEL (not sequentially)
-    const supabaseExercisePromises = exercises.map(exercise =>
-      getExerciseByDirectusId(exercise.exerciseId)
-        .catch(error => {
-          logger.warn('Failed to get exercise from Supabase', { directusId: exercise.exerciseId, error });
-          return null;
-        })
+    // Call the backend endpoint that handles the complete save operation
+    const response = await api.post<{ session_id: string; exercises_count: number; sets_count: number }>(
+      '/supabase-workouts/session/save',
+      {
+        user_id: userId,
+        user_day_id: userDayId,
+        exercises: exercises.map(ex => ({
+          exercise_id: ex.exerciseId,
+          sets: ex.sets
+        }))
+      }
     );
-    const supabaseExercises = await Promise.all(supabaseExercisePromises);
 
-    // Step 3: Create all workout exercises in PARALLEL
-    const workoutExercisePromises: Promise<any>[] = [];
-    const validExercisePairs: Array<{ exercise: ExerciseData; workoutExercisePromise: Promise<any> }> = [];
-
-    supabaseExercises.forEach((supabaseExercise, index) => {
-      if (!supabaseExercise) {
-        logger.warn('Exercise not found in Supabase', { directusId: exercises[index].exerciseId });
-        return;
-      }
-
-      const promise = createWorkoutExercise(session.id, supabaseExercise.id);
-      workoutExercisePromises.push(promise);
-      validExercisePairs.push({
-        exercise: exercises[index],
-        workoutExercisePromise: promise
-      });
-    });
-
-    const workoutExercises = await Promise.all(workoutExercisePromises);
-    logger.debug('All workout exercises created', { count: workoutExercises.length });
-
-    // Step 4: Create all sets for all exercises in PARALLEL
-    const allSetPromises: Promise<any>[] = [];
-
-    for (let i = 0; i < validExercisePairs.length; i++) {
-      const { exercise, workoutExercisePromise } = validExercisePairs[i];
-      const workoutExercise = workoutExercises[i];
-
-      // Create set promises for this exercise
-      for (let setIndex = 0; setIndex < exercise.sets.length; setIndex++) {
-        const set = exercise.sets[setIndex];
-        const setPromise = createUserDayExerciseSet({
-          user_day_workout_exercise_id: workoutExercise.id,
-          reps: set.reps,
-          weight: set.weight,
-          set_order: setIndex + 1
-        });
-        allSetPromises.push(setPromise);
-      }
+    if (!response?.session_id) {
+      throw new Error('Invalid response from backend - no session_id');
     }
 
-    // Wait for all sets to be created in parallel
-    const savedSets = await Promise.all(allSetPromises);
-    const setsSaved = savedSets.length;
-
-    logger.info('Workout session saved successfully', {
-      sessionId: session.id,
-      exercisesSaved: workoutExercises.length,
-      setsSaved
+    logger.info('Workout session saved successfully via backend', {
+      sessionId: response.session_id,
+      exercisesSaved: response.exercises_count,
+      setsSaved: response.sets_count
     });
 
-    return session.id;
+    return response.session_id;
   } catch (error) {
     logger.error('Failed to create and save workout session', { userDayId, error });
     throw error;
@@ -391,84 +348,33 @@ export async function createAndSaveWorkoutSession(
 
 /**
  * Update an existing workout session with new exercises
+ * NOW USES BACKEND API instead of direct Supabase calls
  * Deletes old exercises and saves new ones
- * OPTIMIZED: Uses Promise.all for parallel saving of exercises and sets
  */
 export async function updateWorkoutSessionExercises(
   workoutSessionId: string,
   exercises: ExerciseData[]
 ): Promise<void> {
   try {
-    logger.debug('Updating workout session exercises', {
+    logger.debug('Updating workout session exercises via backend', {
       workoutSessionId,
       exerciseCount: exercises.length
     });
 
-    // Step 1: Delete all existing exercises for this session in PARALLEL
-    const existingExercises = await getUserDayExercisesByWorkout(workoutSessionId);
-    const deletePromises = existingExercises.map(ex => deleteUserDayExercise(ex.id));
-    await Promise.all(deletePromises);
-    logger.debug('Deleted existing exercises', { count: existingExercises.length });
-
-    // Step 2: Load all Supabase exercises in PARALLEL
-    const supabaseExercisePromises = exercises.map(exercise =>
-      getExerciseByDirectusId(exercise.exerciseId)
-        .catch(error => {
-          logger.warn('Failed to get exercise from Supabase', { directusId: exercise.exerciseId, error });
-          return null;
-        })
+    // Call the backend endpoint that handles the complete update operation
+    await api.put(
+      `/supabase-workouts/session/${workoutSessionId}/exercises`,
+      {
+        exercises: exercises.map(ex => ({
+          exercise_id: ex.exerciseId,
+          sets: ex.sets
+        }))
+      }
     );
-    const supabaseExercises = await Promise.all(supabaseExercisePromises);
 
-    // Step 3: Create all workout exercises in PARALLEL
-    const workoutExercisePromises: Promise<any>[] = [];
-    const validExercisePairs: Array<{ exercise: ExerciseData; index: number }> = [];
-
-    supabaseExercises.forEach((supabaseExercise, index) => {
-      if (!supabaseExercise) {
-        logger.warn('Exercise not found in Supabase', { directusId: exercises[index].exerciseId });
-        return;
-      }
-
-      const promise = createWorkoutExercise(workoutSessionId, supabaseExercise.id);
-      workoutExercisePromises.push(promise);
-      validExercisePairs.push({
-        exercise: exercises[index],
-        index
-      });
-    });
-
-    const workoutExercises = await Promise.all(workoutExercisePromises);
-    logger.debug('All workout exercises created', { count: workoutExercises.length });
-
-    // Step 4: Create all sets for all exercises in PARALLEL
-    const allSetPromises: Promise<any>[] = [];
-
-    for (let i = 0; i < validExercisePairs.length; i++) {
-      const { exercise } = validExercisePairs[i];
-      const workoutExercise = workoutExercises[i];
-
-      // Create set promises for this exercise
-      for (let setIndex = 0; setIndex < exercise.sets.length; setIndex++) {
-        const set = exercise.sets[setIndex];
-        const setPromise = createUserDayExerciseSet({
-          user_day_workout_exercise_id: workoutExercise.id,
-          reps: set.reps,
-          weight: set.weight,
-          set_order: setIndex + 1
-        });
-        allSetPromises.push(setPromise);
-      }
-    }
-
-    // Wait for all sets to be created in parallel
-    const savedSets = await Promise.all(allSetPromises);
-    const setsSaved = savedSets.length;
-
-    logger.info('Workout session updated successfully', {
+    logger.info('Workout session updated successfully via backend', {
       workoutSessionId,
-      exercisesSaved: workoutExercises.length,
-      setsSaved
+      exerciseCount: exercises.length
     });
   } catch (error) {
     logger.error('Failed to update workout session exercises', { workoutSessionId, error });
@@ -531,14 +437,15 @@ export async function getWorkoutSessionExercises(workoutSessionId: string): Prom
 
 /**
  * Delete a workout session and all its exercises and sets
+ * NOW USES BACKEND API instead of direct Supabase calls
  */
 export async function deleteWorkoutSessionWithExercises(workoutSessionId: string): Promise<void> {
   try {
-    logger.debug('Deleting workout session', { workoutSessionId });
+    logger.debug('Deleting workout session via backend', { workoutSessionId });
 
-    await deleteWorkoutSession(workoutSessionId);
+    await api.delete(`/supabase-workouts/session/${workoutSessionId}`);
 
-    logger.info('Workout session deleted successfully', { workoutSessionId });
+    logger.info('Workout session deleted successfully via backend', { workoutSessionId });
   } catch (error) {
     logger.error('Failed to delete workout session', { workoutSessionId, error });
     throw error;

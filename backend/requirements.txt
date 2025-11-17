@@ -37,6 +37,9 @@ python-dotenv==1.0.1
 # CORS
 fastapi-cors==0.0.6
 
+# Supabase SDK
+supabase==2.6.0
+
 # Логирование (опционально, для лучшего дебаггинга)
 python-json-logger==3.2.1
 

@@ -45,6 +45,11 @@ services:
       REDIS_URL: redis://redis:6379
       ENVIRONMENT: development
       DEBUG: "true"
+      SECRET_KEY: "dev-secret-key-change-in-production-123456789012345"
+      DIRECTUS_URL: "https://directus.webtga.ru"
+      SUPABASE_URL: "http://supabase_kong_super-strong:8000"
+      SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0YnJlZWFsdGVzdCIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNjk0NzEzMjAwLCJleHAiOjE4NTI0NzkyMDB9.kWsvT-x5mNGF9KzIMmqzh1F_t3y8jBfGzfQQMFJ3hjE"
+      SUPABASE_SERVICE_ROLE_KEY: "sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz"
     ports:
       - "8000:8000"
     volumes:
@@ -57,6 +62,7 @@ services:
     command: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
     networks:
       - super-strong-network
+      - supabase_network_super-strong
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
@@ -70,3 +76,5 @@ volumes:
 networks:
   super-strong-network:
     driver: bridge
+  supabase_network_super-strong:
+    external: true

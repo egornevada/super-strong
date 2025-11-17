@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.config import settings
 from app.database import init_db, close_db
-from app.routes import auth, workout, exercise, statistics, directus
+from app.routes import auth, workout, exercise, statistics, directus, supabase_workouts, supabase_users
 import logging
 
 # Конфигурация логирования
@@ -86,3 +86,5 @@ app.include_router(workout.router)
 app.include_router(exercise.router)
 app.include_router(statistics.router)
 app.include_router(directus.router)
+app.include_router(supabase_workouts.router)
+app.include_router(supabase_users.router)

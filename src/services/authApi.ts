@@ -104,25 +104,25 @@ export async function getUserByTelegramId(telegramId: number): Promise<UserData 
 }
 
 /**
- * Create new user
+ * Create new user via backend API
  */
 export async function createUser(payload: CreateUserPayload): Promise<UserData> {
   try {
-    logger.debug('Creating new user', { username: payload.username });
+    logger.debug('Creating new user via backend', { username: payload.username });
 
-    const user = await supabaseCreateUser({
+    const response = await api.post<UserData>('/supabase-users/create', {
       username: payload.username,
       telegram_id: payload.telegram_id,
       first_name: payload.first_name,
       last_name: payload.last_name
     });
 
-    if (!user || !user.id) {
+    if (!response || !response.id) {
       throw new Error('Failed to create user - invalid response');
     }
 
-    logger.info('User created successfully', { userId: user.id, username: payload.username });
-    return user;
+    logger.info('User created successfully via backend', { userId: response.id, username: payload.username });
+    return response;
   } catch (error) {
     logger.error('Error creating user', { payload, error });
 
@@ -161,7 +161,7 @@ export async function updateUser(userId: string, payload: Partial<CreateUserPayl
 }
 
 /**
- * Get or create user by username
+ * Get or create user by username via backend API
  * If user exists, link Telegram ID if provided
  * If user doesn't exist, create new user
  */
@@ -172,7 +172,25 @@ export async function getOrCreateUserByUsername(
   lastName?: string
 ): Promise<UserData> {
   try {
-    return await supabaseGetOrCreateUserByUsername(username, telegramId, firstName, lastName);
+    logger.debug('Getting or creating user via backend', { username, telegramId });
+
+    const response = await api.post<UserData>('/supabase-users/get-or-create', {
+      username,
+      telegram_id: telegramId,
+      first_name: firstName,
+      last_name: lastName
+    });
+
+    if (!response || !response.id) {
+      throw new Error('Invalid response from backend - no user id');
+    }
+
+    logger.info('User obtained or created successfully via backend', {
+      userId: response.id,
+      username
+    });
+
+    return response;
   } catch (error) {
     logger.error('Error in getOrCreateUserByUsername', { username, telegramId, error });
     throw error;
