@@ -13,10 +13,11 @@
 
 .skeleton-filter-pill {
   height: 32px;
-  width: 70px;
+  width: 80px;
   background: var(--bg-2);
-  border-radius: 8px;
+  border-radius: 12px;
   animation: pulse 1.5s ease-in-out infinite;
+  flex: 0 0 auto;
 }
 
 /* Categories */

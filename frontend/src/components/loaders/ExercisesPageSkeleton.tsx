@@ -13,10 +13,13 @@ export function ExercisesPageSkeleton() {
         <div className="skeleton-filter-pill" />
         <div className="skeleton-filter-pill" />
         <div className="skeleton-filter-pill" />
+        <div className="skeleton-filter-pill" />
+        <div className="skeleton-filter-pill" />
+        <div className="skeleton-filter-pill" />
       </div>
 
       {/* Categories with exercises skeleton */}
-      {[...Array(2)].map((_, categoryIdx) => (
+      {[...Array(5)].map((_, categoryIdx) => (
         <div key={categoryIdx} className="skeleton-category">
           {/* Category title */}
           <div className="skeleton-category-title" />

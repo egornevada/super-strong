@@ -304,17 +304,19 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
         ref={contentRef}
         className="flex-1 overflow-y-auto"
       >
-        {/* Category filter cloud */}
-        <div ref={filterPillsRef} id="filter-pills" className="flex flex-wrap gap-2 px-3 pt-2 pb-3">
-          {categories.map((category) => (
-            <FilterPill
-              key={category}
-              label={category}
-              isActive={false}
-              onClick={() => scrollToSection(category)}
-            />
-          ))}
-        </div>
+        {/* Category filter cloud - only show when not loading */}
+        {!loading && (
+          <div ref={filterPillsRef} id="filter-pills" className="flex flex-wrap gap-2 px-3 pt-1.5 pb-0 -mb-2">
+            {categories.map((category) => (
+              <FilterPill
+                key={category}
+                label={category}
+                isActive={false}
+                onClick={() => scrollToSection(category)}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Sticky tags bar - поднимается вверх при скролле */}
         <div
@@ -341,7 +343,7 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
                 <div
                   key={category}
                   data-category-id={category}
-                  className="px-3 pt-[52px]"
+                  className="px-3 pt-[52px] -mb-2"
                 >
                   {/* Category title */}
                   <h2 className="text-fg-1 text-heading-md mb-3">
@@ -349,7 +351,7 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
                   </h2>
 
                   {/* Exercises grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                     {categoryExercises.map((exercise) => (
                       <ExerciseCard
                         key={exercise.id}
