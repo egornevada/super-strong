@@ -13,6 +13,7 @@ dist-ssr
 *.local
 database/
 uploads/
+docs/
 CLAUDE.md
 docker-compose.yml
 
