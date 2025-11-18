@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import { FilterPill, ExerciseCard, Button, HeaderWithBackButton, StickyTagsBar, ErrorPage } from '../components';
+import { ExercisesPageSkeleton } from '../components/loaders/ExercisesPageSkeleton';
 import { fetchBatchInitData, fetchExercises, fetchCategories, type Exercise } from '../services/directusApi';
 import { useExerciseDetailSheet } from '../contexts/SheetContext';
 import { useBugReportSheet } from '../contexts/BugReportSheetContext';
@@ -29,10 +30,12 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [showStickyBar, setShowStickyBar] = useState(false);
 
   const contentRef = useRef<HTMLDivElement>(null);
+  const filterPillsRef = useRef<HTMLDivElement>(null);
   const isScrollingProgrammaticallyRef = useRef(false);
+  const filterPillsHeightRef = useRef(0);
+  const [stickyBarOffset, setStickyBarOffset] = useState(-128);
 
 
   const handleExerciseImageClick = (exerciseId: string) => {
@@ -100,6 +103,30 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
     loadData();
   }, []);
 
+  // Управляем позицией sticky bar на основе скролла
+  useEffect(() => {
+    const root = contentRef.current;
+    if (!root) return;
+
+    const handleScroll = () => {
+      // Измеряем высоту filter pills при первом скролле если ещё не измерена
+      if (filterPillsHeightRef.current === 0) {
+        const filterPills = filterPillsRef.current;
+        if (filterPills) {
+          filterPillsHeightRef.current = filterPills.offsetHeight;
+        }
+      }
+
+      // Вычисляем offset на основе значения из Ref
+      const filterHeight = filterPillsHeightRef.current;
+      const offset = Math.max(0, filterHeight - root.scrollTop);
+      setStickyBarOffset(-offset);
+    };
+
+    root.addEventListener('scroll', handleScroll, { passive: true });
+    return () => root.removeEventListener('scroll', handleScroll);
+  }, []);
+
   // Синхронизируем выбранные упражнения если изменилось initialSelectedIds
   useEffect(() => {
     setSelectedExercises(initialSelectedIds);
@@ -155,51 +182,6 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
     requestAnimationFrame(checkScrollComplete);
   }, []);
 
-  // Show sticky bar when filter pills scroll out of view
-  useEffect(() => {
-    if (loading || categories.length === 0) return;
-    const root = contentRef.current;
-    if (!root) return;
-
-    // Use RAF to ensure DOM is fully rendered
-    let frameId: number;
-    let scrollListener: (() => void) | null = null;
-
-    const setupListener = () => {
-      const filterPills = root.querySelector<HTMLElement>('.flex.flex-wrap.gap-2');
-      if (!filterPills) {
-        // Retry if element not found
-        frameId = requestAnimationFrame(setupListener);
-        return;
-      }
-
-      const handleScroll = () => {
-        // Skip if programmatically scrolling
-        if (isScrollingProgrammaticallyRef.current) return;
-
-        // Get the bottom position of filter pills
-        const filterRect = filterPills.getBoundingClientRect();
-        const filterBottom = filterRect.bottom;
-
-        // Show sticky bar when filter pills scroll past the top (they're no longer visible)
-        setShowStickyBar(filterBottom < 0);
-      };
-
-      scrollListener = handleScroll;
-      root.addEventListener('scroll', handleScroll, { passive: true });
-      // Initial call to set correct state
-      handleScroll();
-    };
-
-    frameId = requestAnimationFrame(setupListener);
-
-    return () => {
-      cancelAnimationFrame(frameId);
-      if (scrollListener) {
-        root.removeEventListener('scroll', scrollListener);
-      }
-    };
-  }, [loading, categories.length]);
 
   // Spy по секциям - отслеживаем активную категорию
   useLayoutEffect(() => {
@@ -306,9 +288,9 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
   }
 
   return (
-    <div className="w-full h-full bg-bg-1 flex flex-col relative">
-      {/* Header with back button */}
-      <div className="bg-bg-1">
+    <div className="w-full h-full bg-bg-1 flex flex-col">
+      {/* Header - не растягивается */}
+      <div className="flex-shrink-0 bg-bg-1 relative z-[51]">
         <HeaderWithBackButton
           backButtonLabel={dateLabel}
           onBack={onBack}
@@ -316,13 +298,28 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
         />
       </div>
 
-      {/* Fixed sticky tags bar - appears when scrolling */}
-      {showStickyBar && (
+
+      {/* Main scrollable content */}
+      <div
+        ref={contentRef}
+        className="flex-1 overflow-y-auto"
+      >
+        {/* Category filter cloud */}
+        <div ref={filterPillsRef} id="filter-pills" className="flex flex-wrap gap-2 px-3 pt-2 pb-3">
+          {categories.map((category) => (
+            <FilterPill
+              key={category}
+              label={category}
+              isActive={false}
+              onClick={() => scrollToSection(category)}
+            />
+          ))}
+        </div>
+
+        {/* Sticky tags bar - поднимается вверх при скролле */}
         <div
-          className="w-full bg-bg-1 border-b border-stroke-1 z-50 fixed left-0 right-0"
-          style={{
-            top: '64px',
-          }}
+          className="fixed top-[64px] left-0 right-0 z-50 bg-bg-1 border-b border-stroke-1 transition-transform duration-100"
+          style={{ transform: `translateY(${stickyBarOffset}px)` }}
         >
           <StickyTagsBar
             categories={categories}
@@ -330,93 +327,70 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
             onCategoryClick={scrollToSection}
           />
         </div>
-      )}
 
-      {/* Scrollable content */}
-      <div
-        ref={contentRef}
-        className="flex-1 overflow-y-auto"
-      >
-          {/* Category filter cloud - scrolls with content */}
-          <div className="flex flex-wrap gap-2 px-3 pt-2 pb-3">
-            {categories.map((category) => (
-              <FilterPill
-                key={category}
-                label={category}
-                isActive={false}
-                onClick={() => scrollToSection(category)}
-              />
-            ))}
-          </div>
+        {loading ? (
+          <ExercisesPageSkeleton />
+        ) : (
+          <>
+            {categories.map((category) => {
+              const categoryExercises = exercises.filter(
+                (ex) => ex.category === category
+              );
 
-          {/* Sentinel for sticky bar trigger */}
-          <div id="cloud-sentinel" style={{ height: '1px', visibility: 'hidden' }} />
+              return (
+                <div
+                  key={category}
+                  data-category-id={category}
+                  className="px-3 pt-[52px]"
+                >
+                  {/* Category title */}
+                  <h2 className="text-fg-1 text-heading-md mb-3">
+                    {category}
+                  </h2>
 
-          {loading ? (
-            <div className="py-8 text-center">
-              <p className="text-fg-2">Загрузка упражнений...</p>
-            </div>
-          ) : (
-            <>
-              {categories.map((category) => {
-                const categoryExercises = exercises.filter(
-                  (ex) => ex.category === category
-                );
-
-                return (
-                  <div
-                    key={category}
-                    data-category-id={category}
-                    className="px-3 pt-[52px]"
-                  >
-                    {/* Category title */}
-                    <h2 className="text-fg-1 text-heading-md mb-3">
-                      {category}
-                    </h2>
-
-                    {/* Exercises grid - 2 columns on mobile, 3 columns on larger screens */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
-                      {categoryExercises.map((exercise) => (
-                        <ExerciseCard
-                          key={exercise.id}
-                          id={exercise.id}
-                          name={exercise.name}
-                          image={
-                            exercise.image ? (
-                              <div className="w-full h-full overflow-hidden">
-                                <img
-                                  src={exercise.image.url}
-                                  alt={exercise.image.alternativeText || exercise.name}
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                            ) : undefined
-                          }
-                          onSelect={handleSelectExercise}
-                          onImageClick={handleExerciseImageClick}
-                          isSelected={selectedExercises.includes(exercise.id)}
-                        />
-                      ))}
-                    </div>
-
-                    {categoryExercises.length === 0 && (
-                      <div className="text-center py-12">
-                        <p className="text-fg-3">Упражнений не найдено</p>
-                      </div>
-                    )}
+                  {/* Exercises grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
+                    {categoryExercises.map((exercise) => (
+                      <ExerciseCard
+                        key={exercise.id}
+                        id={exercise.id}
+                        name={exercise.name}
+                        image={
+                          exercise.image ? (
+                            <div className="w-full h-full overflow-hidden">
+                              <img
+                                src={exercise.image.url}
+                                alt={exercise.image.alternativeText || exercise.name}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          ) : undefined
+                        }
+                        onSelect={handleSelectExercise}
+                        onImageClick={handleExerciseImageClick}
+                        isSelected={selectedExercises.includes(exercise.id)}
+                      />
+                    ))}
                   </div>
-                );
-              })}
-            </>
-          )}
 
-          {/* Invisible spacer for button - 88px */}
-          <div className="h-22" />
-        </div>
+                  {categoryExercises.length === 0 && (
+                    <div className="text-center py-12">
+                      <p className="text-fg-3">Упражнений не найдено</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </>
+        )}
 
-        {/* Action button - separate block that pushes content up */}
-        {selectedExercises.length > 0 && (
-        <div className="bg-bg-1">
+        {/* Spacer for button */}
+        <div className="h-22" />
+      </div>
+
+      {/* Button - не растягивается */}
+      {selectedExercises.length > 0 && (
+        <div className="flex-shrink-0 bg-bg-1">
           <Button
             priority="primary"
             tone="brand"

@@ -840,17 +840,18 @@ export default function App() {
             </div>
 
             {/* Exercises */}
-            <div
-              style={{ display: currentPage === 'exercises' ? 'flex' : 'none' }}
-              className={`w-full h-full flex-1 sm:rounded-[24px] overflow-hidden ${currentPage === 'exercises' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
-            >
-              <ExercisesPage
-                selectedDate={selectedDate}
-                onBack={handleBackFromExercises}
-                onStartTraining={handleGoToMyExercises}
-                initialSelectedIds={selectedExercises.map((ex) => ex.id)}
-              />
-            </div>
+            {currentPage === 'exercises' && (
+              <div
+                className={`w-full h-full flex-1 sm:rounded-[24px] overflow-hidden ${isClosing ? 'dissolve-out' : 'dissolve-in'}`}
+              >
+                <ExercisesPage
+                  selectedDate={selectedDate}
+                  onBack={handleBackFromExercises}
+                  onStartTraining={handleGoToMyExercises}
+                  initialSelectedIds={selectedExercises.map((ex) => ex.id)}
+                />
+              </div>
+            )}
 
             {/* Tracking (My Exercises) */}
             <div
