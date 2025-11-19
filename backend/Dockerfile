@@ -1,7 +1,7 @@
 # Multi-stage build для production
 
 # Stage 1: Builder
-FROM python:3.14-slim as builder
+FROM python:3.13-slim as builder
 
 WORKDIR /app
 
@@ -16,7 +16,7 @@ COPY requirements.txt .
 RUN pip install --user --no-cache-dir -r requirements.txt
 
 # Stage 2: Runtime
-FROM python:3.14-slim
+FROM python:3.13-slim
 
 WORKDIR /app
 
