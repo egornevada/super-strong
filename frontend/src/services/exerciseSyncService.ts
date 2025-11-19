@@ -20,10 +20,8 @@ export async function syncExercisesFromDirectus(): Promise<number> {
 
     logger.debug('Fetched exercises from Directus', { count: directusExercises.length });
 
-    // Sync each exercise to Supabase
-    let syncedCount = 0;
-
-    for (const exercise of directusExercises) {
+    // Sync all exercises to Supabase in parallel
+    const syncPromises = directusExercises.map(async (exercise) => {
       try {
         await upsertExercise({
           directus_id: exercise.id,
@@ -32,13 +30,18 @@ export async function syncExercisesFromDirectus(): Promise<number> {
           description: exercise.description
         });
 
-        syncedCount++;
         logger.debug('Exercise synced', { exerciseId: exercise.id, name: exercise.name });
+        return true;
       } catch (error) {
         logger.error('Failed to sync exercise', { exerciseId: exercise.id, error });
-        // Continue with next exercise even if one fails
+        // Return false for failed exercises but continue with others
+        return false;
       }
-    }
+    });
+
+    // Wait for all exercises to sync in parallel
+    const results = await Promise.all(syncPromises);
+    const syncedCount = results.filter(success => success).length;
 
     logger.info('Exercise sync completed', { syncedCount, totalCount: directusExercises.length });
     return syncedCount;
