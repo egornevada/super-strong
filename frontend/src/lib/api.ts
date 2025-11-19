@@ -7,8 +7,8 @@
 // For production: use original API
 const isDev = import.meta.env.DEV;
 const API_BASE = isDev
-  ? 'http://localhost:8000/api/v1'  // Python FastAPI backend
-  : (import.meta.env.VITE_API_URL || 'https://strong.webtga.ru/workouts/api');
+  ? 'http://localhost:8000'  // Python FastAPI backend
+  : (import.meta.env.VITE_API_URL || 'https://strong.webtga.ru/workouts');
 const OFFLINE_CACHE_KEY = 'api_offline_cache';
 const PENDING_REQUESTS_KEY = 'api_pending_requests';
 const JWT_TOKEN_KEY = 'super-strong-jwt-token'; // Store JWT token from backend auth

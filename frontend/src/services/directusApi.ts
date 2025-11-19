@@ -73,7 +73,7 @@ export async function fetchExercises(): Promise<Exercise[]> {
   try {
     // Получаем упражнения с их категориями через Directus REST API
     const response = await api.get<DirectusResponse<DirectusExercise>>(
-      '/items/exercises?fields=id,name,description,image.id,image.title,step_1_image.id,step_1_image.title,category.id,category.name&limit=-1'
+      '/api/v1/items/exercises?fields=id,name,description,image.id,image.title,step_1_image.id,step_1_image.title,category.id,category.name&limit=-1'
     );
 
     const data = Array.isArray(response) ? response : (response?.data || []);
@@ -124,7 +124,7 @@ export async function fetchExercisesByCategory(
 ): Promise<Exercise[]> {
   try {
     const response = await api.get<DirectusResponse<DirectusExercise>>(
-      `/items/exercises?fields=id,name,description,image.id,image.title,step_1_image.id,step_1_image.title,category.id,category.name&filter[category][name][_eq]=${encodeURIComponent(category)}&limit=-1`
+      `/api/v1/items/exercises?fields=id,name,description,image.id,image.title,step_1_image.id,step_1_image.title,category.id,category.name&filter[category][name][_eq]=${encodeURIComponent(category)}&limit=-1`
     );
 
     const data = Array.isArray(response) ? response : (response?.data || []);
@@ -172,7 +172,7 @@ export async function fetchExercisesByCategory(
 export async function fetchCategories(): Promise<string[]> {
   try {
     const response = await api.get<DirectusResponse<DirectusCategory>>(
-      '/items/categories?fields=id,name&limit=-1'
+      '/api/v1/items/categories?fields=id,name&limit=-1'
     );
 
     const data = Array.isArray(response) ? response : (response?.data || []);
@@ -193,7 +193,7 @@ export async function fetchCategories(): Promise<string[]> {
 export async function fetchExerciseById(id: string): Promise<Exercise> {
   try {
     const response = await api.get<any>(
-      `/items/exercises/${id}?fields=id,name,description,image.id,image.title,category.id,category.name,step_1_image,step_1_title,step_1_description,step_2_image,step_2_title,step_2_description,step_3_image,step_3_title,step_3_description,step_4_image,step_4_title,step_4_description,step_5_image,step_5_title,step_5_description`
+      `/api/v1/items/exercises/${id}?fields=id,name,description,image.id,image.title,category.id,category.name,step_1_image,step_1_title,step_1_description,step_2_image,step_2_title,step_2_description,step_3_image,step_3_title,step_3_description,step_4_image,step_4_title,step_4_description,step_5_image,step_5_title,step_5_description`
     );
 
     // Directus returns { data: {...} } for single item GET, or {...} directly
@@ -274,7 +274,7 @@ export async function fetchBatchInitData(): Promise<{
     const response = await api.get<{
       exercises: any[];
       categories: string[];
-    }>('/batch/init');
+    }>('/api/v1/batch/init');
 
     const exercises = (response?.exercises || []).map((item: any) => {
       // Transform Directus format to Exercise format (same as fetchExercises)

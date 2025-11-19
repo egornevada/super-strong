@@ -93,7 +93,7 @@ export async function createWorkoutOnBackend(
   try {
     logger.debug('Creating workout on backend', { date });
 
-    const response = await api.post<BackendWorkoutResponse>('/workouts', {
+    const response = await api.post<BackendWorkoutResponse>('/api/v1/workouts', {
       date,
       total_weight: totalWeight || 0,
       total_sets: totalSets || 0,
@@ -120,7 +120,7 @@ export async function getAllWorkoutsFromBackend(limit: number = 100, offset: num
   try {
     logger.debug('Fetching all workouts from backend', { limit, offset });
 
-    const response = await api.get<BackendWorkoutResponse[]>(`/workouts?limit=${limit}&offset=${offset}`);
+    const response = await api.get<BackendWorkoutResponse[]>(`/api/v1/workouts?limit=${limit}&offset=${offset}`);
 
     logger.info('Workouts fetched from backend', { count: response?.length || 0 });
     return response || [];
@@ -138,7 +138,7 @@ export async function deleteWorkoutFromBackend(workoutId: number): Promise<boole
   try {
     logger.debug('Deleting workout from backend', { workoutId });
 
-    await api.delete(`/workouts/${workoutId}`);
+    await api.delete(`/api/v1/workouts/${workoutId}`);
 
     logger.info('Workout deleted from backend', { workoutId });
     return true;
@@ -165,7 +165,7 @@ export async function createExerciseOnBackend(
     logger.debug('Creating exercise on backend', { workoutId, exerciseId });
 
     const response = await api.post<BackendExerciseResponse>(
-      `/workouts/${workoutId}/exercises`,
+      `/api/v1/workouts/${workoutId}/exercises`,
       {
         exercise_id: exerciseId,
         weight,
@@ -199,7 +199,7 @@ export async function getMonthlyStatisticsFromBackend(
   try {
     logger.debug('Fetching monthly statistics from backend', { year, month });
 
-    const response = await api.get<any>(`/workouts/statistics/monthly?year=${year}&month=${month}`);
+    const response = await api.get<any>(`/api/v1/workouts/statistics/monthly?year=${year}&month=${month}`);
 
     logger.info('Monthly statistics fetched from backend', { year, month });
     return response || {};
@@ -320,7 +320,7 @@ export async function createAndSaveWorkoutSession(
 
     // Call the backend endpoint that handles the complete save operation
     const response = await api.post<{ session_id: string; exercises_count: number; sets_count: number }>(
-      '/supabase-workouts/session/save',
+      '/api/v1/supabase-workouts/session/save',
       {
         user_id: userId,
         user_day_id: userDayId,
@@ -366,7 +366,7 @@ export async function updateWorkoutSessionExercises(
 
     // Call the backend endpoint that handles the complete update operation
     await api.put(
-      `/supabase-workouts/session/${workoutSessionId}/exercises`,
+      `/api/v1/supabase-workouts/session/${workoutSessionId}/exercises`,
       {
         exercises: exercises.map(ex => ({
           exercise_id: ex.exerciseId,
@@ -446,7 +446,7 @@ export async function deleteWorkoutSessionWithExercises(workoutSessionId: string
   try {
     logger.debug('Deleting workout session via backend', { workoutSessionId });
 
-    await api.delete(`/supabase-workouts/session/${workoutSessionId}`);
+    await api.delete(`/api/v1/supabase-workouts/session/${workoutSessionId}`);
 
     logger.info('Workout session deleted successfully via backend', { workoutSessionId });
   } catch (error) {

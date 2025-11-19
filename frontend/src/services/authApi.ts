@@ -46,7 +46,7 @@ export async function authenticateWithTelegram(initData: string): Promise<{ user
     logger.debug('Authenticating with Telegram backend', { hasInitData: !!initData });
 
     // Call backend Telegram auth endpoint
-    const response = await api.post<BackendAuthResponse>('/auth/telegram', {
+    const response = await api.post<BackendAuthResponse>('/api/v1/auth/telegram', {
       init_data: initData
     });
 
