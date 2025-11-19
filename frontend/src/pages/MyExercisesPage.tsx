@@ -246,7 +246,7 @@ export function MyExercisesPage({
       });
 
       // Save to server - this creates a NEW session and saves all exercises
-      const sessionId = await createAndSaveWorkoutSession(currentUser.id, userDayId, apiExercises);
+      const sessionId = await createAndSaveWorkoutSession(currentUser.id, userDayId, apiExercises, workoutStartTime);
 
       logger.info('Workout session saved successfully', { sessionId, exerciseCount: apiExercises.length });
 

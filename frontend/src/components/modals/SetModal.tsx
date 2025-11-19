@@ -40,6 +40,7 @@ export const SetModal = React.forwardRef<HTMLDivElement, SetModalProps>(
     const [reps, setReps] = React.useState<string>('10');
     const [weight, setWeight] = React.useState<string>('');
     const [weightError, setWeightError] = React.useState<boolean>(false);
+    const [repsError, setRepsError] = React.useState<boolean>(false);
 
     const isEditMode = mode === 'edit';
 
@@ -87,6 +88,18 @@ export const SetModal = React.forwardRef<HTMLDivElement, SetModalProps>(
       const repsNum = parseInt(reps, 10);
       const weightNum = parseFloat(normalizedWeight);
 
+      // Check for maximum weight limit (999 kg)
+      if (!isNaN(weightNum) && weightNum > 999) {
+        setWeightError(true);
+        return;
+      }
+
+      // Check for maximum reps limit (99999)
+      if (!isNaN(repsNum) && repsNum > 99999) {
+        setRepsError(true);
+        return;
+      }
+
       if (!isNaN(repsNum) && !isNaN(weightNum)) {
         // Save reps value for this exercise
         localStorage.setItem(getStorageKey('reps'), reps);
@@ -97,9 +110,37 @@ export const SetModal = React.forwardRef<HTMLDivElement, SetModalProps>(
       }
     };
 
+    const handleRepsChange = (value: string) => {
+      setReps(value);
+
+      // Check reps in real-time
+      if (value.trim()) {
+        const repsNum = parseInt(value, 10);
+
+        if (!isNaN(repsNum) && repsNum > 99999) {
+          setRepsError(true);
+        } else {
+          setRepsError(false);
+        }
+      } else {
+        setRepsError(false);
+      }
+    };
+
     const handleWeightChange = (value: string) => {
       setWeight(value);
+
+      // Check weight in real-time
       if (value.trim()) {
+        const normalizedWeight = value.replace(',', '.');
+        const weightNum = parseFloat(normalizedWeight);
+
+        if (!isNaN(weightNum) && weightNum > 999) {
+          setWeightError(true);
+        } else {
+          setWeightError(false);
+        }
+      } else {
         setWeightError(false);
       }
     };
@@ -109,7 +150,31 @@ export const SetModal = React.forwardRef<HTMLDivElement, SetModalProps>(
       setReps('10');
       setWeight('');
       setWeightError(false);
+      setRepsError(false);
       onClose?.();
+    };
+
+    // Calculate reps label based on input value
+    const getRepsLabel = () => {
+      if (reps.trim()) {
+        const repsNum = parseInt(reps, 10);
+        if (!isNaN(repsNum) && repsNum > 99999) {
+          return 'Многооооо';
+        }
+      }
+      return 'Повторы';
+    };
+
+    // Calculate weight label based on input value
+    const getWeightLabel = () => {
+      if (weight.trim()) {
+        const normalizedWeight = weight.replace(',', '.');
+        const weightNum = parseFloat(normalizedWeight);
+        if (!isNaN(weightNum) && weightNum > 999) {
+          return 'Рекорд становой тяги – 510кг';
+        }
+      }
+      return 'Вес (кг)';
     };
 
     if (!isOpen) return null;
@@ -156,16 +221,17 @@ export const SetModal = React.forwardRef<HTMLDivElement, SetModalProps>(
           <div style={{ marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {/* Reps input */}
             <TextField
-              label="Повторы"
+              label={getRepsLabel()}
               value={reps}
-              onChange={setReps}
+              onChange={handleRepsChange}
               type="text"
               inputMode="numeric"
+              error={repsError}
             />
 
             {/* Weight input */}
             <TextField
-              label="Вес (кг)"
+              label={getWeightLabel()}
               value={weight}
               onChange={handleWeightChange}
               type="text"

@@ -308,12 +308,14 @@ export async function getWorkoutSessionsWithCount(userDayId: string): Promise<Wo
 export async function createAndSaveWorkoutSession(
   userId: string,
   userDayId: string,
-  exercises: ExerciseData[]
+  exercises: ExerciseData[],
+  startedAt?: string | null
 ): Promise<string> {
   try {
     logger.debug('Creating workout session and saving exercises via backend', {
       userDayId,
-      exerciseCount: exercises.length
+      exerciseCount: exercises.length,
+      startedAt
     });
 
     // Call the backend endpoint that handles the complete save operation
@@ -322,6 +324,7 @@ export async function createAndSaveWorkoutSession(
       {
         user_id: userId,
         user_day_id: userDayId,
+        started_at: startedAt,
         exercises: exercises.map(ex => ({
           exercise_id: ex.exerciseId,
           sets: ex.sets
@@ -583,14 +586,15 @@ export async function loadAllUserWorkoutData(
     // Load exercises and sets for each day in parallel
     const dayPromises = userDays.map(async (userDay) => {
       try {
-        // Check if this day has any sessions
-        const sessions = await getWorkoutSessionsForDay(userDay.id);
+        // Check if this day has any sessions - load both in parallel
+        const [sessions, setsData] = await Promise.all([
+          getWorkoutSessionsForDay(userDay.id),
+          getWorkoutSetsForDay(userDay.date, userId)
+        ]);
+
         if (!sessions || sessions.length === 0) {
           return null;
         }
-
-        // Get all exercises from all sessions for this day
-        const setsData = await getWorkoutSetsForDay(userDay.date, userId);
         if (!setsData || setsData.exercises.size === 0) {
           return null;
         }
@@ -687,14 +691,15 @@ export async function loadMonthWorkoutData(
     // Load exercises and sets for each day in parallel
     const dayPromises = userDays.map(async (userDay) => {
       try {
-        // Check if this day has any sessions
-        const sessions = await getWorkoutSessionsForDay(userDay.id);
+        // Check if this day has any sessions - load both in parallel
+        const [sessions, setsData] = await Promise.all([
+          getWorkoutSessionsForDay(userDay.id),
+          getWorkoutSetsForDay(userDay.date, userId)
+        ]);
+
         if (!sessions || sessions.length === 0) {
           return null;
         }
-
-        // Get all exercises from all sessions for this day
-        const setsData = await getWorkoutSetsForDay(userDay.date, userId);
         if (!setsData || setsData.exercises.size === 0) {
           return null;
         }

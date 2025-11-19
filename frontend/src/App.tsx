@@ -595,6 +595,9 @@ export default function App() {
     setIsClosing(true);
     setTimeout(() => {
       setSelectedExercises(exercises);
+      // Set workout start time to current time when starting a new workout
+      setCurrentWorkoutStartTime(new Date().toISOString());
+      setCurrentWorkoutSessionId(null); // Clear any existing session ID for new workout
       setCurrentPage('tracking');
       setIsClosing(false);
     }, 300);
@@ -829,7 +832,7 @@ export default function App() {
             {/* Calendar - always in DOM, just hidden */}
             <div
               style={{ display: currentPage === 'calendar' ? 'flex' : 'none' }}
-              className={`w-full h-full flex-1 sm:rounded-[24px] overflow-hidden ${currentPage === 'calendar' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
+              className={`w-full h-full flex-1 overflow-hidden ${currentPage === 'calendar' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
             >
               <CalendarPage
                 onDayClick={handleDayClick}
@@ -842,7 +845,7 @@ export default function App() {
             {/* Exercises */}
             {currentPage === 'exercises' && (
               <div
-                className={`w-full h-full flex-1 sm:rounded-[24px] overflow-hidden ${isClosing ? 'dissolve-out' : 'dissolve-in'}`}
+                className={`w-full h-full flex-1 overflow-hidden ${isClosing ? 'dissolve-out' : 'dissolve-in'}`}
               >
                 <ExercisesPage
                   selectedDate={selectedDate}
@@ -856,7 +859,7 @@ export default function App() {
             {/* Tracking (My Exercises) */}
             <div
               style={{ display: currentPage === 'tracking' ? 'flex' : 'none' }}
-              className={`w-full h-full flex-1 sm:rounded-[24px] overflow-hidden ${currentPage === 'tracking' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
+              className={`w-full h-full flex-1 overflow-hidden ${currentPage === 'tracking' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
             >
               <MyExercisesPage
                 selectedExercises={exercisesWithTrackedSetsMemo}
@@ -874,7 +877,7 @@ export default function App() {
             {/* Day Detail Page - shows workout sessions for a day */}
             <div
               style={{ display: currentPage === 'daydetail' ? 'flex' : 'none' }}
-              className={`w-full h-full flex-1 sm:rounded-[24px] overflow-hidden ${currentPage === 'daydetail' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
+              className={`w-full h-full flex-1 overflow-hidden ${currentPage === 'daydetail' ? (isClosing ? 'dissolve-out' : 'dissolve-in') : ''}`}
             >
               {currentUserDayId && selectedDate && (
                 <DayDetailPage

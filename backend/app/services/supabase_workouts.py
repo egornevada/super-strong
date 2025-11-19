@@ -120,12 +120,32 @@ class SupabaseWorkoutService:
         started_at: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         """
-        Deprecated: Use get_or_create_workout_session instead.
-        Create a new workout session (may fail if one already exists due to UNIQUE constraint).
+        Create a new workout session (always creates new, doesn't check for existing).
+        Allows multiple workouts per day for the same user.
         """
-        return await SupabaseWorkoutService.get_or_create_workout_session(
-            user_id, user_day_id, started_at
-        )
+        try:
+            if not started_at:
+                started_at = datetime.utcnow().isoformat()
+
+            result = await SupabaseWorkoutService._make_request(
+                "POST",
+                "user_day_workouts",
+                data={
+                    "user_id": user_id,
+                    "user_day_id": user_day_id,
+                    "started_at": started_at
+                }
+            )
+
+            if result and isinstance(result, list) and len(result) > 0:
+                logger.info(f"Workout session created: {result[0]['id']}")
+                return result[0]
+            else:
+                logger.error("Failed to create workout session: invalid response format")
+                return None
+        except Exception as e:
+            logger.error(f"Error creating workout session: {e}")
+            raise
 
     @staticmethod
     async def get_exercise_by_directus_id(directus_id: str) -> Optional[Dict[str, Any]]:
