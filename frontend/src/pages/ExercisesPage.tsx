@@ -6,7 +6,7 @@ import { useExerciseDetailSheet } from '../contexts/SheetContext';
 import { useBugReportSheet } from '../contexts/BugReportSheetContext';
 import ArrowCircleRightRounded from '@mui/icons-material/ArrowCircleRightRounded';
 
-const STICKY_TOP = 64; // высота фиксированной шапки
+const STICKY_TOP = 66; // высота фиксированной шапки + 2px
 
 interface SelectedDate {
   day: number;
@@ -320,8 +320,12 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
 
         {/* Sticky tags bar - поднимается вверх при скролле */}
         <div
-          className="fixed top-[64px] left-0 right-0 z-50 bg-bg-1 border-b border-stroke-1 transition-transform duration-100"
-          style={{ transform: `translateY(${stickyBarOffset}px)` }}
+          className="fixed top-[32px] left-0 right-0 z-50 bg-bg-1 border-b border-stroke-1 transition-all duration-100 pt-8"
+          style={{
+            transform: `translateY(${stickyBarOffset}px)`,
+            opacity: stickyBarOffset > -128 ? 1 : 0,
+            pointerEvents: stickyBarOffset > -128 ? 'auto' : 'none'
+          }}
         >
           <StickyTagsBar
             categories={categories}
