@@ -209,87 +209,102 @@ export default function App() {
             totalDays: currentMonthWorkouts?.length
           });
 
-          // Load ALL workout data for profile statistics (one time, not per month)
-          setCurrentLoadingStep('Загружаем статистику тренировок');
-          const allWorkoutData = await loadAllUserWorkoutData(
-            currentUser?.id || '',
-            exercisesData
-          );
-
-          // Set savedWorkouts with all data
-          setSavedWorkouts(allWorkoutData);
-
-          // Recalculate profile stats from ALL loaded data
-          // Convert dateKey format (day-month-year) to YYYY-MM-DD format expected by profileStats
-          const serverWorkoutsForStats = new Map<string, Array<{ trackSets: Set[] }>>();
-          allWorkoutData.forEach((exercises, dateKey) => {
-            const parts = dateKey.split('-');
-            if (parts.length === 3) {
-              const day = parseInt(parts[0], 10);
-              const month = parseInt(parts[1], 10);
-              const year = parseInt(parts[2], 10);
-              const isoDateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-              serverWorkoutsForStats.set(isoDateKey, exercises.map(ex => ({
-                trackSets: ex.trackSets || []
-              })));
-            }
-          });
-          recalculateStatsFromSavedWorkouts(serverWorkoutsForStats, currentUser?.created_at);
-
           setLoadingProgress(65);
 
         } catch (err) {
           logger.warn('Failed to load current month workouts', { err });
         }
 
-        setLoadingProgress(70);
-
-        // Sync pending requests with timeout (don't block if offline or slow)
-        try {
-          setCurrentLoadingStep('Синхронизируем данные');
-          await Promise.race([
-            syncPendingRequests(),
-            new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('Sync timeout')), 15000)
-            )
-          ]);
-        } catch (syncError) {
-          // Continue anyway - pending requests will sync later
-        }
-
         setLoadingProgress(90);
         setCurrentLoadingStep('Инициализируем приложение');
 
-        // Prefetch adjacent months in the background (after showing UI)
-        // This happens AFTER app is rendered, so doesn't block initial load
-        // 📖 Source: https://tanstack.com/query/latest/docs/framework/react/reference/useQueryClient#queryclientprefetchquery
-        setTimeout(() => {
-          // Prefetch previous month
-          const prevMonth = today.getMonth() - 1 < 0 ? 11 : today.getMonth() - 1;
-          const prevYear = today.getMonth() - 1 < 0 ? today.getFullYear() - 1 : today.getFullYear();
-          queryClient.prefetchQuery({
-            queryKey: ['workouts-month', prevYear, prevMonth],
-            queryFn: async () => {
-              const dateStr = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-01`;
-              return getWorkoutsForDate(dateStr, currentUser?.id);
-            },
-            staleTime: 1000 * 60 * 5,
-          });
+        /**
+         * 📖 BACKGROUND LOADS - after UI is shown to user
+         * All heavy operations happen AFTER app renders, not blocking initial load
+         * This includes:
+         * 1. Loading ALL historical data for profile statistics
+         * 2. Prefetching adjacent months
+         * 3. Syncing pending requests
+         */
+        setTimeout(async () => {
+          try {
+            // Load ALL workout data for profile statistics (heavy operation!)
+            // This loads exercises for ALL months, so happens in background
+            logger.info('Background: Starting to load all historical data for statistics');
+            const allWorkoutData = await loadAllUserWorkoutData(
+              currentUser?.id || '',
+              exercisesData
+            );
 
-          // Prefetch next month
-          const nextMonth = today.getMonth() + 1 > 11 ? 0 : today.getMonth() + 1;
-          const nextYear = today.getMonth() + 1 > 11 ? today.getFullYear() + 1 : today.getFullYear();
-          queryClient.prefetchQuery({
-            queryKey: ['workouts-month', nextYear, nextMonth],
-            queryFn: async () => {
-              const dateStr = `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}-01`;
-              return getWorkoutsForDate(dateStr, currentUser?.id);
-            },
-            staleTime: 1000 * 60 * 5,
-          });
+            // Set savedWorkouts with all data
+            setSavedWorkouts(allWorkoutData);
 
-          logger.info('Prefetch for adjacent months started', { prevYear, prevMonth, nextYear, nextMonth });
-        }, 500);
+            // Recalculate profile stats from ALL loaded data
+            // Convert dateKey format (day-month-year) to YYYY-MM-DD format expected by profileStats
+            const serverWorkoutsForStats = new Map<string, Array<{ trackSets: Set[] }>>();
+            allWorkoutData.forEach((exercises, dateKey) => {
+              const parts = dateKey.split('-');
+              if (parts.length === 3) {
+                const day = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10);
+                const year = parseInt(parts[2], 10);
+                const isoDateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                serverWorkoutsForStats.set(isoDateKey, exercises.map(ex => ({
+                  trackSets: ex.trackSets || []
+                })));
+              }
+            });
+            recalculateStatsFromSavedWorkouts(serverWorkoutsForStats, currentUser?.created_at);
+            logger.info('Background: All historical data loaded and stats calculated');
+          } catch (error) {
+            logger.warn('Background: Failed to load all workout data', { error });
+          }
+
+          try {
+            // Prefetch adjacent months
+            // Prefetch previous month
+            const prevMonth = today.getMonth() - 1 < 0 ? 11 : today.getMonth() - 1;
+            const prevYear = today.getMonth() - 1 < 0 ? today.getFullYear() - 1 : today.getFullYear();
+            queryClient.prefetchQuery({
+              queryKey: ['workouts-month', prevYear, prevMonth],
+              queryFn: async () => {
+                const dateStr = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-01`;
+                return getWorkoutsForDate(dateStr, currentUser?.id);
+              },
+              staleTime: 1000 * 60 * 5,
+            });
+
+            // Prefetch next month
+            const nextMonth = today.getMonth() + 1 > 11 ? 0 : today.getMonth() + 1;
+            const nextYear = today.getMonth() + 1 > 11 ? today.getFullYear() + 1 : today.getFullYear();
+            queryClient.prefetchQuery({
+              queryKey: ['workouts-month', nextYear, nextMonth],
+              queryFn: async () => {
+                const dateStr = `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}-01`;
+                return getWorkoutsForDate(dateStr, currentUser?.id);
+              },
+              staleTime: 1000 * 60 * 5,
+            });
+
+            logger.info('Background: Prefetch for adjacent months started', { prevYear, prevMonth, nextYear, nextMonth });
+          } catch (error) {
+            logger.warn('Background: Failed to prefetch adjacent months', { error });
+          }
+
+          try {
+            // Sync pending requests with timeout (don't block if offline or slow)
+            await Promise.race([
+              syncPendingRequests(),
+              new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Sync timeout')), 15000)
+              )
+            ]);
+            logger.info('Background: Pending requests synced');
+          } catch (syncError) {
+            // Continue anyway - pending requests will sync later
+            logger.warn('Background: Sync pending requests timed out or failed', { syncError });
+          }
+        }, 100);  // Start background operations immediately after UI is ready
 
         setLoadingProgress(100);
         setIsLoadingWorkouts(false);
