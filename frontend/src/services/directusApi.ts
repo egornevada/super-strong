@@ -311,14 +311,21 @@ export async function fetchBatchInitData(): Promise<{
       };
     });
 
-    const categories = response?.categories || [];
+    // Сортируем категории по полю sort и извлекаем только имена
+    const sortedCategories = (response?.categories || [])
+      .sort((a: any, b: any) => {
+        const sortA = a.sort ?? Number.MAX_VALUE;
+        const sortB = b.sort ?? Number.MAX_VALUE;
+        return sortA - sortB;
+      })
+      .map((cat: any) => cat.name);
 
     logger.info('Batch init data loaded', {
       exercisesCount: exercises.length,
-      categoriesCount: categories.length
+      categoriesCount: sortedCategories.length
     });
 
-    return { exercises, categories };
+    return { exercises, categories: sortedCategories };
   } catch (error) {
     logger.error("Failed to fetch batch init data:", error);
     throw error;
