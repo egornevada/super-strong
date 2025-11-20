@@ -6,8 +6,6 @@ import { useExerciseDetailSheet } from '../contexts/SheetContext';
 import { useBugReportSheet } from '../contexts/BugReportSheetContext';
 import ArrowCircleRightRounded from '@mui/icons-material/ArrowCircleRightRounded';
 
-const STICKY_TOP = 66; // высота фиксированной шапки + 2px
-
 interface SelectedDate {
   day: number;
   month: number;
@@ -35,6 +33,7 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
   const filterPillsRef = useRef<HTMLDivElement>(null);
   const isScrollingProgrammaticallyRef = useRef(false);
   const filterPillsHeightRef = useRef(0);
+  const stickyTopRef = useRef(66);  // Будет пересчитана динамически
   const [stickyBarOffset, setStickyBarOffset] = useState(-128);
 
 
@@ -103,6 +102,20 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
     loadData();
   }, []);
 
+  // Динамически рассчитываем высоту для скролла к категориям
+  // Это фиксит проблему на iPhone 11 Pro где высота элементов отличается
+  useEffect(() => {
+    if (!loading && filterPillsRef.current) {
+      // Измеряем реальную высоту filterPills ТОЛЬКО
+      // Header находится СНАРУЖИ contentRef, поэтому его не учитываем
+      // offsetTop рассчитывается ВНУТРИ contentRef (скроллируемого контейнера)
+      const filterPillsHeight = filterPillsRef.current.offsetHeight;
+
+      stickyTopRef.current = filterPillsHeight;
+      console.log(`[ExercisesPage] Calculated STICKY_TOP: ${filterPillsHeight}px (filterPills only)`);
+    }
+  }, [loading, categories.length]);
+
   // Управляем позицией sticky bar на основе скролла
   useEffect(() => {
     const root = contentRef.current;
@@ -149,7 +162,9 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
     // Disable spy scroll and UI updates BEFORE scroll starts
     isScrollingProgrammaticallyRef.current = true;
 
-    const targetScrollTop = el.offsetTop - STICKY_TOP;
+    // Используем динамически рассчитанное значение вместо жесткого STICKY_TOP
+    // Это фиксит проблему на iPhone 11 Pro где высота элементов отличается
+    const targetScrollTop = el.offsetTop - stickyTopRef.current;
     let lastScrollTop = root.scrollTop;
     let scrollCheckCount = 0;
 
@@ -198,7 +213,9 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
       // Skip spy scroll during programmatic scrolling
       if (isScrollingProgrammaticallyRef.current) return;
 
-      const targetPosition = STICKY_TOP;
+      // Используем динамически рассчитанную высоту для определения активной категории
+      // targetPosition это позиция на экране где должна быть категория (в px от верха)
+      const targetPosition = stickyTopRef.current;
       let activeSection: HTMLElement | null = null;
 
       // Find first section that is visible at the top
