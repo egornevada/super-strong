@@ -110,7 +110,7 @@ export async function createUser(payload: CreateUserPayload): Promise<UserData> 
   try {
     logger.debug('Creating new user via backend', { username: payload.username });
 
-    const response = await api.post<UserData>('/supabase-users/create', {
+    const response = await api.post<UserData>('/api/v1/supabase-users/create', {
       username: payload.username,
       telegram_id: payload.telegram_id,
       first_name: payload.first_name,
@@ -174,7 +174,7 @@ export async function getOrCreateUserByUsername(
   try {
     logger.debug('Getting or creating user via backend', { username, telegramId });
 
-    const response = await api.post<UserData>('/supabase-users/get-or-create', {
+    const response = await api.post<UserData>('/api/v1/supabase-users/get-or-create', {
       username,
       telegram_id: telegramId,
       first_name: firstName,
