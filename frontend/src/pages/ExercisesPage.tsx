@@ -88,7 +88,7 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
           } else {
             const uniqueCategories = Array.from(
               new Set(exercisesData.map((ex) => ex.category))
-            ).sort();
+            );
             setCategories(uniqueCategories.length > 0 ? uniqueCategories : ['Грудь']);
           }
         }
@@ -302,7 +302,7 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
       {/* Main scrollable content */}
       <div
         ref={contentRef}
-        className="flex-1 overflow-y-auto"
+        className="flex-1 overflow-y-auto pb-[80px]"
       >
         {/* Category filter cloud - only show when not loading */}
         {!loading && (
@@ -386,13 +386,13 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
           </>
         )}
 
-        {/* Spacer for button */}
-        <div className="h-22" />
+        {/* Spacer for fixed button */}
+        {selectedExercises.length > 0 && <div className="h-22" />}
       </div>
 
-      {/* Button - не растягивается */}
+      {/* Fixed Button at bottom */}
       {selectedExercises.length > 0 && (
-        <div className="flex-shrink-0 bg-bg-1">
+        <div className="fixed bottom-0 left-0 right-0 bg-bg-1 z-40">
           <Button
             priority="primary"
             tone="brand"

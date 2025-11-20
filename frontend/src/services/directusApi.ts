@@ -41,6 +41,7 @@ interface DirectusExercise {
 interface DirectusCategory {
   id: string;
   name: string;
+  sort?: number;
 }
 
 interface DirectusFile {
@@ -172,15 +173,21 @@ export async function fetchExercisesByCategory(
 export async function fetchCategories(): Promise<string[]> {
   try {
     const response = await api.get<DirectusResponse<DirectusCategory>>(
-      '/api/v1/items/categories?fields=id,name&limit=-1'
+      '/api/v1/items/categories?fields=id,name,sort&limit=-1'
     );
 
     const data = Array.isArray(response) ? response : (response?.data || []);
 
-    // Получаем названия всех категорий
-    const categories = data.map((item: any) => item.name);
+    // Сортируем по полю sort, затем получаем названия категорий
+    const sorted = data.sort((a: any, b: any) => {
+      const sortA = a.sort ?? Number.MAX_VALUE;
+      const sortB = b.sort ?? Number.MAX_VALUE;
+      return sortA - sortB;
+    });
 
-    return categories.sort();
+    const categories = sorted.map((item: any) => item.name);
+
+    return categories;
   } catch (error) {
     logger.error("Failed to fetch categories from Directus:", error);
     throw error;
@@ -304,7 +311,7 @@ export async function fetchBatchInitData(): Promise<{
       };
     });
 
-    const categories = (response?.categories || []).sort();
+    const categories = response?.categories || [];
 
     logger.info('Batch init data loaded', {
       exercisesCount: exercises.length,
