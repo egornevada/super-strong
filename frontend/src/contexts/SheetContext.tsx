@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react'
+import { type Set } from '../components'
 
 export interface ExerciseDetailSheetState {
   isOpen: boolean
@@ -7,11 +8,13 @@ export interface ExerciseDetailSheetState {
   onAddExercise?: () => void
   onRemoveExercise?: () => void
   isExerciseAdded?: boolean
+  trackSets?: Set[]
+  onUpdateTrackSets?: (sets: Set[]) => void
 }
 
 interface ExerciseDetailSheetContextType {
   sheet: ExerciseDetailSheetState
-  openExerciseDetail: (exerciseId: string, onDeleteExercise?: () => void, onAddExercise?: () => void, onRemoveExercise?: () => void, isExerciseAdded?: boolean) => void
+  openExerciseDetail: (exerciseId: string, onDeleteExercise?: () => void, onAddExercise?: () => void, onRemoveExercise?: () => void, isExerciseAdded?: boolean, trackSets?: Set[], onUpdateTrackSets?: (sets: Set[]) => void) => void
   closeSheet: () => void
 }
 
@@ -22,7 +25,7 @@ export function ExerciseDetailSheetProvider({ children }: { children: ReactNode 
     isOpen: false,
   })
 
-  const openExerciseDetail = (exerciseId: string, onDeleteExercise?: () => void, onAddExercise?: () => void, onRemoveExercise?: () => void, isExerciseAdded?: boolean) => {
+  const openExerciseDetail = (exerciseId: string, onDeleteExercise?: () => void, onAddExercise?: () => void, onRemoveExercise?: () => void, isExerciseAdded?: boolean, trackSets?: Set[], onUpdateTrackSets?: (sets: Set[]) => void) => {
     setSheet({
       isOpen: true,
       exerciseId,
@@ -30,6 +33,8 @@ export function ExerciseDetailSheetProvider({ children }: { children: ReactNode 
       onAddExercise,
       onRemoveExercise,
       isExerciseAdded,
+      trackSets,
+      onUpdateTrackSets,
     })
   }
 
@@ -41,6 +46,8 @@ export function ExerciseDetailSheetProvider({ children }: { children: ReactNode 
       onAddExercise: undefined,
       onRemoveExercise: undefined,
       isExerciseAdded: undefined,
+      trackSets: undefined,
+      onUpdateTrackSets: undefined,
     })
   }
 

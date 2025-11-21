@@ -37,7 +37,7 @@ export function SheetOverlay({ isOpen, onClose, children }: SheetOverlayProps) {
     <>
       {/* Backdrop overlay - затемнение с закрытием при клике */}
       <div
-        className="fixed inset-0 bg-black/40 z-40"
+        className="fixed inset-0 bg-transparent z-40"
         style={{
           opacity: isOpen ? 1 : 0,
           pointerEvents: isOpen ? 'auto' : 'none',
@@ -55,16 +55,16 @@ export function SheetOverlay({ isOpen, onClose, children }: SheetOverlayProps) {
         style={{
           transform: isOpen ? 'translateY(0)' : 'translateY(100%)',
           opacity: isOpen ? 1 : 0,
-          height: `calc(100dvh - ${topOffset}px)`,
-          top: `${topOffset}px`,
+          height: '100dvh',
+          top: '0px',
           visibility: isOpen ? 'visible' : 'hidden',
           transition: isOpen
             ? 'transform 200ms ease-out, opacity 200ms ease-out, visibility 200ms ease-out'
             : 'transform 200ms ease-in, opacity 200ms ease-in, visibility 200ms ease-in 200ms',
         }}
       >
-        {/* Sheet content с rounded corners только сверху */}
-        <div className="bg-bg-1 rounded-t-3xl overflow-hidden flex flex-col h-full" style={{ maxWidth: '632px', width: '100%' }}>
+        {/* Sheet content без rounded corners */}
+        <div className="bg-bg-1 overflow-hidden flex flex-col h-full" style={{ maxWidth: '632px', width: '100%' }}>
           {children}
         </div>
       </div>

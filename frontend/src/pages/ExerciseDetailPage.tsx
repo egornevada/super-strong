@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { PageLayout } from '../components/PageLayout'
-import { AlertDialog, Button } from '../components'
+import { AlertDialog, Button, DefaultStroke, SetModal, type Set } from '../components'
 import { StepsSlider } from '../components/StepsSlider/StepsSlider'
 import { fetchExerciseById, type Exercise } from '../services/directusApi'
 import { useExerciseDetailSheet } from '../contexts/SheetContext'
@@ -24,6 +24,9 @@ export function ExerciseDetailPage({
   const [showDeleteAlert, setShowDeleteAlert] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [isExerciseAdded, setIsExerciseAdded] = useState(sheet.isExerciseAdded ?? false)
+  const [trackSets, setTrackSets] = useState<Set[]>([])
+  const [isSetModalOpen, setIsSetModalOpen] = useState(false)
+  const [editingSetIndex, setEditingSetIndex] = useState<number | null>(null)
 
   useEffect(() => {
     const loadExercise = async () => {
@@ -49,6 +52,13 @@ export function ExerciseDetailPage({
       setIsExerciseAdded(sheet.isExerciseAdded)
     }
   }, [sheet.isExerciseAdded])
+
+  // Sync track sets from sheet
+  useEffect(() => {
+    if (sheet.trackSets) {
+      setTrackSets(sheet.trackSets)
+    }
+  }, [sheet.trackSets])
 
   if (loading) {
     return (
@@ -110,6 +120,76 @@ export function ExerciseDetailPage({
     }
   }
 
+  const handleAddSet = (reps: number, weight: number) => {
+    const newSets = [...trackSets, { reps, weight }]
+    setTrackSets(newSets)
+    sheet.onUpdateTrackSets?.(newSets)
+  }
+
+  const handleUpdateSet = (index: number, reps: number, weight: number) => {
+    const updated = [...trackSets]
+    if (updated[index]) {
+      updated[index] = { reps, weight }
+      setTrackSets(updated)
+      sheet.onUpdateTrackSets?.(updated)
+    }
+  }
+
+  const handleDeleteSet = (index: number) => {
+    const newSets = trackSets.filter((_, i) => i !== index)
+    setTrackSets(newSets)
+    sheet.onUpdateTrackSets?.(newSets)
+  }
+
+  const openAddModal = () => {
+    setEditingSetIndex(null)
+    setIsSetModalOpen(true)
+  }
+
+  const openEditModal = (index: number) => {
+    setEditingSetIndex(index)
+    setIsSetModalOpen(true)
+  }
+
+  const handleSetModalClose = () => {
+    setIsSetModalOpen(false)
+    setEditingSetIndex(null)
+  }
+
+  const handleConfirmSet = (reps: number, weight: number) => {
+    if (editingSetIndex !== null) {
+      handleUpdateSet(editingSetIndex, reps, weight)
+    } else {
+      handleAddSet(reps, weight)
+    }
+    handleSetModalClose()
+  }
+
+  const handleSetDelete = (setIndex?: number) => {
+    if (setIndex !== undefined) {
+      handleDeleteSet(setIndex)
+    }
+    handleSetModalClose()
+  }
+
+  const formatSetLabel = (order: number) => {
+    const lastTwo = order % 100
+    if (lastTwo >= 11 && lastTwo <= 14) return `${order}-ый подход`
+    const last = order % 10
+    if (last === 1) return `${order}-ый подход`
+    if (last === 2) return `${order}-ой подход`
+    return `${order}-ий подход`
+  }
+
+  const formatNumber = (value: number) => {
+    if (Number.isInteger(value)) {
+      return value.toString()
+    }
+    return value
+      .toLocaleString('ru-RU', { maximumFractionDigits: 2 })
+      .replace(/\u00A0/g, ' ')
+  }
+
   return (
     <PageLayout title={exercise.name} onClose={onClose}>
       {/* Exercise name as heading */}
@@ -119,16 +199,21 @@ export function ExerciseDetailPage({
         <div className="mb-6">
           <StepsSlider steps={exercise.steps} exerciseName={exercise.name} />
         </div>
-      ) : exercise.image ? (
+      ) : (
         /* Fallback to regular image if no steps */
         <div className="mb-6 rounded-lg overflow-hidden bg-bg-2 aspect-video">
           <img
-            src={exercise.image.url}
+            src={exercise.image?.url || `https://directus.webtga.ru/assets/${exercise.id}`}
             alt={exercise.name}
             className="w-full h-full object-cover"
+            onError={(e) => {
+              // If image fails to load, hide it
+              const img = e.target as HTMLImageElement;
+              img.style.display = 'none';
+            }}
           />
         </div>
-      ) : null}
+      )}
 
       {/* Info sections */}
       <div className="space-y-4">
@@ -164,6 +249,46 @@ export function ExerciseDetailPage({
             </p>
           </div>
         )}
+
+        {/* Sets section */}
+        <div>
+          <p className="text-fg-3 text-sm mb-3">Подходы</p>
+          {trackSets.length > 0 ? (
+            <div className="space-y-2 mb-3">
+              {trackSets.map((set, index) => (
+                <div
+                  key={index}
+                  className="cursor-pointer select-none p-2 rounded-lg hover:bg-bg-3 transition-colors"
+                  onClick={() => openEditModal(index)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      openEditModal(index)
+                    }
+                  }}
+                >
+                  <DefaultStroke
+                    label={formatSetLabel(index + 1)}
+                    value={`${formatNumber(set.reps)} × ${formatNumber(set.weight)} кг`}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-fg-3 text-sm mb-3">Еще не добавлено ни одного подхода</p>
+          )}
+          <Button
+            priority="secondary"
+            tone="default"
+            size="md"
+            className="w-full"
+            onClick={openAddModal}
+          >
+            Добавить подход
+          </Button>
+        </div>
 
         {/* Add/Remove button for exercises page */}
         {(sheet.onAddExercise || sheet.onRemoveExercise) && (
@@ -228,6 +353,19 @@ export function ExerciseDetailPage({
         isDangerous={true}
         onConfirm={handleConfirmDelete}
         onCancel={() => setShowDeleteAlert(false)}
+      />
+
+      {/* Set Modal */}
+      <SetModal
+        isOpen={isSetModalOpen}
+        exerciseName={exercise.name}
+        setNumber={editingSetIndex !== null ? editingSetIndex + 1 : trackSets.length + 1}
+        mode={editingSetIndex !== null ? 'edit' : 'create'}
+        initialValues={editingSetIndex !== null ? trackSets[editingSetIndex] : undefined}
+        setIndex={editingSetIndex ?? undefined}
+        onClose={handleSetModalClose}
+        onConfirm={handleConfirmSet}
+        onDelete={handleSetDelete}
       />
     </PageLayout>
   )

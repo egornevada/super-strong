@@ -29,7 +29,7 @@ export function PageLayout({ title, onClose, children }: PageLayoutProps) {
       />
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto pt-4 px-3">
+      <div className="flex-1 overflow-y-auto px-3">
         {children}
       </div>
     </div>

@@ -114,9 +114,29 @@ export function MyExercisesPage({
   };
 
   const handleExerciseImageClick = (exerciseId: string) => {
-    // Pass delete callback when opening exercise detail
+    // Find the exercise to get its track sets
+    const exercise = exercisesWithSets.find(ex => ex.id === exerciseId);
+    const trackSets = exercise?.trackSets || [];
+
+    // Pass delete callback and track sets when opening exercise detail
     const deleteCallback = () => handleDeleteExercise(exerciseId);
-    openExerciseDetail(exerciseId, deleteCallback);
+    const updateTrackSets = (sets: Set[]) => {
+      const exerciseIndex = exercisesWithSets.findIndex(ex => ex.id === exerciseId);
+      if (exerciseIndex !== -1) {
+        handleUpdateTrackSets(exerciseIndex, sets);
+      }
+    };
+
+    openExerciseDetail(exerciseId, deleteCallback, undefined, undefined, undefined, trackSets, updateTrackSets);
+  };
+
+  const handleUpdateTrackSets = (exerciseIndex: number, sets: Set[]) => {
+    const updated = [...exercisesWithSets];
+    const target = updated[exerciseIndex];
+    if (!target) return;
+
+    updated[exerciseIndex] = { ...target, trackSets: sets };
+    setExercisesWithSets(updated);
   };
 
   const monthNames = [
@@ -335,7 +355,21 @@ export function MyExercisesPage({
                           className="w-full h-full object-cover"
                         />
                       </div>
-                    ) : undefined
+                    ) : (
+                      // Fallback: load from Directus using exercise ID
+                      <div className="w-full h-full overflow-hidden">
+                        <img
+                          src={`https://directus.webtga.ru/assets/${exercise.id}`}
+                          alt={exercise.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            // If image fails to load, hide it
+                            const img = e.target as HTMLImageElement;
+                            img.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    )
                   }
                   sets={exercise.trackSets}
                   onAddSet={(reps, weight) => handleAddSet(index, reps, weight)}
