@@ -1,0 +1,65 @@
+.exercises-skeleton {
+  padding: 0 12px;
+}
+
+/* Filter pills */
+.skeleton-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+  margin-bottom: 12px;
+}
+
+.skeleton-filter-pill {
+  height: 32px;
+  width: 80px;
+  background: var(--bg-2);
+  border-radius: 12px;
+  animation: pulse 1.5s ease-in-out infinite;
+  flex: 0 0 auto;
+}
+
+/* Categories */
+.skeleton-category {
+  margin-bottom: 32px;
+}
+
+.skeleton-category-title {
+  height: 24px;
+  width: 120px;
+  background: var(--bg-2);
+  border-radius: 4px;
+  margin-bottom: 16px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Exercise cards grid */
+.skeleton-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (min-width: 640px) {
+  .skeleton-cards-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.skeleton-card {
+  aspect-ratio: 1;
+  background: var(--bg-2);
+  border-radius: 8px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
