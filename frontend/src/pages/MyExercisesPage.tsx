@@ -343,8 +343,7 @@ export function MyExercisesPage({
                   id={exercise.id}
                   name={exercise.name}
                   subtitle={
-                    exercise.description?.trim() ||
-                    (exercise.category ? `Упражнение на ${exercise.category.toLowerCase()}` : undefined)
+                    exercise.category
                   }
                   image={
                     exercise.image ? (
