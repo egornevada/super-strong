@@ -250,45 +250,47 @@ export function ExerciseDetailPage({
           </div>
         )}
 
-        {/* Sets section */}
-        <div>
-          <p className="text-fg-3 text-sm mb-3">Подходы</p>
-          {trackSets.length > 0 ? (
-            <div className="space-y-2 mb-3">
-              {trackSets.map((set, index) => (
-                <div
-                  key={index}
-                  className="cursor-pointer select-none p-2 rounded-lg hover:bg-bg-3 transition-colors"
-                  onClick={() => openEditModal(index)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      openEditModal(index)
-                    }
-                  }}
-                >
-                  <DefaultStroke
-                    label={formatSetLabel(index + 1)}
-                    value={`${formatNumber(set.reps)} × ${formatNumber(set.weight)} кг`}
-                  />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-fg-3 text-sm mb-3">Еще не добавлено ни одного подхода</p>
-          )}
-          <Button
-            priority="secondary"
-            tone="default"
-            size="md"
-            className="w-full"
-            onClick={openAddModal}
-          >
-            Добавить подход
-          </Button>
-        </div>
+        {/* Sets section - only show when opened from MyExercisesPage */}
+        {sheet.onUpdateTrackSets && (
+          <div>
+            <p className="text-fg-3 text-sm mb-3">Подходы</p>
+            {trackSets.length > 0 ? (
+              <div className="space-y-2 mb-3">
+                {trackSets.map((set, index) => (
+                  <div
+                    key={index}
+                    className="cursor-pointer select-none p-2 rounded-lg hover:bg-bg-3 transition-colors"
+                    onClick={() => openEditModal(index)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        openEditModal(index)
+                      }
+                    }}
+                  >
+                    <DefaultStroke
+                      label={formatSetLabel(index + 1)}
+                      value={`${formatNumber(set.reps)} × ${formatNumber(set.weight)} кг`}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-fg-3 text-sm mb-3">Еще не добавлено ни одного подхода</p>
+            )}
+            <Button
+              priority="secondary"
+              tone="default"
+              size="md"
+              className="w-full"
+              onClick={openAddModal}
+            >
+              Добавить подход
+            </Button>
+          </div>
+        )}
 
         {/* Add/Remove button for exercises page */}
         {(sheet.onAddExercise || sheet.onRemoveExercise) && (
