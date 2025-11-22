@@ -41,6 +41,7 @@ app = FastAPI(
 allowed_origins = [
     settings.FRONTEND_URL,
     settings.FRONTEND_PROD_URL,
+    settings.FRONTEND_TEST_URL,
     "http://localhost:3000",
     "http://localhost:5173",
 ]

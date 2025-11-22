@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     # CORS
     FRONTEND_URL: str = "http://localhost:5173"
     FRONTEND_PROD_URL: str = "https://strong.webtga.ru"
+    FRONTEND_TEST_URL: str = "https://teststrong.webtga.ru"
 
     class Config:
         env_file = ".env"
