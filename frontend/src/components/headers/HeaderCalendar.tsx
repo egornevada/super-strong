@@ -1,52 +1,16 @@
 import * as React from 'react';
-import { useEffect } from 'react';
-import { Loader } from '../loaders/Loader';
+import { Loader } from '../loading/Loader';
 import logoSvg from '../../assets/icons/Logo.svg';
-import logoErrorSvg from '../../assets/icons/Logo Error.svg';
 
 export interface HeaderProps {
   logoSrc?: string;
   title?: string;
   rightSlot?: React.ReactNode;
   isLoading?: boolean;
-  onOpenBugReport?: () => void;
 }
 
 export const Header = React.forwardRef<HTMLDivElement, HeaderProps>(
-  ({ logoSrc = logoSvg, title, rightSlot, isLoading = false, onOpenBugReport }, ref) => {
-    const [isErrorLogoActive, setIsErrorLogoActive] = React.useState(false);
-    const logoContainerRef = React.useRef<HTMLDivElement>(null);
-
-    // Handle clicks outside logo to reset state
-    useEffect(() => {
-      const handleDocumentClick = (event: MouseEvent) => {
-        if (logoContainerRef.current && !logoContainerRef.current.contains(event.target as Node)) {
-          setIsErrorLogoActive(false);
-        }
-      };
-
-      if (isErrorLogoActive) {
-        document.addEventListener('click', handleDocumentClick);
-        return () => {
-          document.removeEventListener('click', handleDocumentClick);
-        };
-      }
-    }, [isErrorLogoActive]);
-
-    const handleLogoClick = (e: React.MouseEvent) => {
-      e.stopPropagation();
-
-      if (!isErrorLogoActive) {
-        // First click: activate error logo
-        setIsErrorLogoActive(true);
-      } else {
-        // Second click: open bug report
-        setIsErrorLogoActive(false);
-        onOpenBugReport?.();
-      }
-    };
-
-    const currentLogoSrc = isErrorLogoActive ? logoErrorSvg : logoSvg;
+  ({ logoSrc = logoSvg, title, rightSlot, isLoading = false }, ref) => {
 
     return (
       <div
@@ -71,16 +35,14 @@ export const Header = React.forwardRef<HTMLDivElement, HeaderProps>(
               {title}
             </h1>
           ) : (
-            /* Logo with overlay loader and click handler */
+            /* Logo with overlay loader */
             <div
-              ref={logoContainerRef}
-              className="relative cursor-pointer"
+              className="relative"
               style={{ width: '106px', height: '44px' }}
-              onClick={handleLogoClick}
             >
-              {/* Logo text - always visible */}
+              {/* Logo - always visible */}
               <img
-                src={currentLogoSrc}
+                src={logoSrc}
                 alt="Logo"
                 style={{ width: '100%', height: '100%', objectFit: 'contain' }}
               />
@@ -96,7 +58,7 @@ export const Header = React.forwardRef<HTMLDivElement, HeaderProps>(
                     transform: 'translateY(-50%)'
                   }}
                 >
-                  <Loader size="md" />
+                  <Loader size="M" />
                 </div>
               )}
             </div>

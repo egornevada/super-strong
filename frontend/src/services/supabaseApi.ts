@@ -762,37 +762,3 @@ export async function deleteUserDayExerciseSet(setId: string): Promise<void> {
 // Bug Reports
 // ============================================================================
 
-export interface BugReportData {
-  telegram_username: string;
-  browser_info: string;
-  message: string;
-  page?: string;
-}
-
-export async function createBugReport(data: BugReportData): Promise<void> {
-  try {
-    const { error } = await supabase
-      .from('bug_reports')
-      .insert([
-        {
-          telegram_username: data.telegram_username,
-          browser_info: data.browser_info,
-          message: data.message,
-          page: data.page,
-          created_at: new Date().toISOString(),
-        },
-      ]);
-
-    if (error) {
-      throw error;
-    }
-
-    logger.info('Bug report created successfully', {
-      username: data.telegram_username,
-      page: data.page,
-    });
-  } catch (error) {
-    logger.error('Error creating bug report', { error });
-    throw error;
-  }
-}

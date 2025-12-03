@@ -5,21 +5,20 @@ import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import { useProfileSheet } from '../contexts/ProfileSheetContext';
 import { useSettingsSheet } from '../contexts/SettingsSheetContext';
-import { useBugReportSheet } from '../contexts/BugReportSheetContext';
 import { useMonthWorkouts, usePrefetchAdjacentMonths } from '../hooks/useMonthWorkouts';
 import { getWorkoutsForDate } from '../services/workoutsApi';
 
 interface CalendarPageProps {
   onDayClick?: (day: number, month: number, year: number) => void | Promise<void>;
   onMonthChange?: (month: number, year: number) => void;
+  onOpenPreview?: () => void;
   workoutDays?: string[];
   savedWorkouts?: Map<string, any[]>;
 }
 
-export function CalendarPage({ onDayClick, onMonthChange, workoutDays = [], savedWorkouts = new Map() }: CalendarPageProps) {
+export function CalendarPage({ onDayClick, onMonthChange, onOpenPreview, workoutDays = [], savedWorkouts = new Map() }: CalendarPageProps) {
   const { openProfileSheet } = useProfileSheet();
   const { openSettingsSheet } = useSettingsSheet();
-  const { openBugReportSheet } = useBugReportSheet();
   const prefetchMonth = usePrefetchAdjacentMonths();
 
   const today = new Date();
@@ -143,10 +142,20 @@ export function CalendarPage({ onDayClick, onMonthChange, workoutDays = [], save
         <Header
           rightSlot={
             <>
+              {/* DEBUG: Components Preview Button */}
+              <Button
+                priority="tertiary"
+                tone="default"
+                size="M"
+                style={{ fontSize: '10px', opacity: 0.5 }}
+                onClick={onOpenPreview}
+              >
+                UI
+              </Button>
               <Button
                 priority="secondary"
                 tone="default"
-                size="md"
+                size="M"
                 leftIcon={<AccountCircleRoundedIcon />}
                 aria-label="Profile"
                 iconOnly
@@ -155,7 +164,7 @@ export function CalendarPage({ onDayClick, onMonthChange, workoutDays = [], save
               <Button
                 priority="secondary"
                 tone="default"
-                size="md"
+                size="M"
                 leftIcon={<SettingsRoundedIcon />}
                 aria-label="Settings"
                 iconOnly
@@ -163,12 +172,11 @@ export function CalendarPage({ onDayClick, onMonthChange, workoutDays = [], save
               />
             </>
           }
-          onOpenBugReport={() => openBugReportSheet('Календарь')}
         />
       </div>
 
       {/* Calendar content */}
-      <div className="flex-1 overflow-hidden bg-white">
+      <div className="flex-1 overflow-hidden bg-bg-special">
         <Calendar
           month={displayMonth}
           year={displayYear}

@@ -1,10 +1,26 @@
 import * as React from 'react';
 import { Day } from './Day';
-import { Button } from '../main/Button';
-import { Weekdays } from './Weekdays';
-import { DefaultStroke } from '../StatItem';
+import { Button } from '../main-components/Button';
+import { DefaultStroke } from '../main-components/MonthStats';
 import KeyboardArrowLeftRounded from '@mui/icons-material/KeyboardArrowLeftRounded';
 import KeyboardArrowRightRounded from '@mui/icons-material/KeyboardArrowRightRounded';
+
+// Компонент заголовка недели - встроен в Calendar
+const Weekdays = ({ weekDays = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'] }: { weekDays?: string[] }) => (
+  <div className="w-full bg-bg-1">
+    <div className="grid grid-cols-7 gap-0">
+      {weekDays.map((day, index) => (
+        <div
+          key={index}
+          className="text-center font-medium text-fg-3"
+          style={{ fontSize: '10px', paddingBottom: '8px' }}
+        >
+          {day}
+        </div>
+      ))}
+    </div>
+  </div>
+);
 
 export interface CalendarProps {
   month?: number;
@@ -45,8 +61,6 @@ export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
       'Ноябрь',
       'Декабрь',
     ];
-
-    const weekdayShort = ['П', 'В', 'С', 'Ч', 'П', 'С', 'В'];
 
     // Get days for the current month
     const getMonthDays = (monthIndex: number, yearIndex: number) => {
@@ -113,7 +127,7 @@ export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
               <Button
                 priority="secondary"
                 tone="default"
-                size="sm"
+                size="S"
                 leftIcon={<KeyboardArrowLeftRounded />}
                 aria-label="Previous month"
                 iconOnly
@@ -123,7 +137,7 @@ export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
               <Button
                 priority="secondary"
                 tone="default"
-                size="sm"
+                size="S"
                 leftIcon={<KeyboardArrowRightRounded />}
                 aria-label="Next month"
                 iconOnly
@@ -170,9 +184,9 @@ export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
           </div>
         </div>
 
-        {/* Stats section - fixed at bottom */}
+        {/* Stats section - floating card at bottom */}
         {monthStats && (
-          <div className="bg-bg-2 px-3 pt-4 pb-6 rounded-t-[16px] absolute bottom-0 left-0 right-0 z-10" style={{ height: 'auto' }}>
+          <div className="bg-bg-1 px-3 pt-4 pb-6 rounded-[16px] absolute bottom-4 left-3 right-3 z-10" style={{ height: 'auto', boxShadow: 'var(--shadow-big)' }}>
             <h3 className="text-fg-1 mb-3 text-heading-md">Статистика за месяц</h3>
 
             <div className="space-y-2">

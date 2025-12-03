@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { PageLayout, DefaultStroke } from '../components';
+import { ModalBig, DefaultStroke } from '../components';
 import { useTelegram } from '../hooks/useTelegram';
 import { useUser } from '../contexts/UserContext';
 import { useProfileSheet } from '../contexts/ProfileSheetContext';
@@ -104,7 +104,7 @@ export function ProfilePage({ onClose }: ProfilePageProps) {
   const workoutDaysLabel = formatDaysLabel(stats.workoutsCompleted);
 
   return (
-    <PageLayout title="Профиль" onClose={onClose}>
+    <ModalBig title="Профиль" onClose={onClose}>
       <div className="mx-4">
         {/* Account section */}
         <div className="py-4 border-b border-stroke-1">
@@ -127,6 +127,6 @@ export function ProfilePage({ onClose }: ProfilePageProps) {
           <p className="text-fg-3 text-center text-sm">Скоро тут появится больше статистики...</p>
         </div>
       </div>
-    </PageLayout>
+    </ModalBig>
   );
 }

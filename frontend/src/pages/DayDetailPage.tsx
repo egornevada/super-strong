@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { Button, AlertDialog, HeaderWithBackButton, SessionCard, type WorkoutSession } from '../components'
+import { Button, AlertDialog, HeaderWithBackButton, WorkoutCard, type WorkoutSession } from '../components'
 import { logger } from '../lib/logger'
 import { getWorkoutSessionsWithCount } from '../services/workoutsApi'
 import { useOptimisticDeleteWorkout } from '../hooks/useOptimisticDeleteWorkout'
-import { useBugReportSheet } from '../contexts/BugReportSheetContext'
 import AddRounded from '@mui/icons-material/AddRounded'
 
 interface SelectedDate {
@@ -29,7 +28,6 @@ export function DayDetailPage({
   onStartNewWorkout,
   onOpenWorkout
 }: DayDetailPageProps) {
-  const { openBugReportSheet } = useBugReportSheet();
   const [sessions, setSessions] = useState<WorkoutSession[]>([])
   const [loading, setLoading] = useState(true)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
@@ -163,7 +161,6 @@ export function DayDetailPage({
         <HeaderWithBackButton
           backButtonLabel={dateLabel}
           onBack={onBack}
-          onOpenBugReport={() => openBugReportSheet('День')}
         />
       </div>
 
@@ -185,7 +182,7 @@ export function DayDetailPage({
         ) : (
           <div className="space-y-3">
             {optimisticSessions.map((session: WorkoutSession) => (
-              <SessionCard
+              <WorkoutCard
                 key={session.id}
                 session={session}
                 isMenuOpen={sessionMenuOpen === session.id}
@@ -209,7 +206,7 @@ export function DayDetailPage({
         <Button
           priority="secondary"
           tone="default"
-          size="md"
+          size="M"
           className="w-full rounded-none pt-4 pb-6"
           style={{ borderRadius: '0', height: '64px' }}
           leftIcon={<AddRounded />}

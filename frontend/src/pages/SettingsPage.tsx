@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { PageLayout, DefaultStroke } from '../components'
+import { ModalBig, DefaultStroke } from '../components'
 import { useTelegram } from '../hooks/useTelegram'
 import { deleteAccountAndClose, closeTelegramApp, showTelegramConfirm } from '../lib/telegram'
 import { userActions, logger } from '../lib/logger'
 import { getUserSession, clearUserSession } from '../services/authApi'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
-import { Button } from '../components/main/Button'
+import { Button } from '../components/main-components/Button'
 
 interface SettingsPageProps {
   onClose?: () => void
@@ -50,7 +50,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
   }
 
   return (
-    <PageLayout title="Настройки" onClose={onClose}>
+    <ModalBig title="Настройки" onClose={onClose}>
       <div className="mx-4">
         {/* About section */}
         <div>
@@ -73,7 +73,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
             <Button
               priority="secondary"
               tone="default"
-              size="md"
+              size="M"
               className="w-full"
               leftIcon={<LogoutRoundedIcon />}
               onClick={handleLogout}
@@ -85,7 +85,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
             <Button
               priority="secondary"
               tone="default"
-              size="md"
+              size="M"
               className="w-full text-red-500 hover:bg-red-50"
               leftIcon={<DeleteRoundedIcon />}
               onClick={handleDeleteAccount}
@@ -96,6 +96,6 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
           </div>
         </div>
       </div>
-    </PageLayout>
+    </ModalBig>
   )
 }

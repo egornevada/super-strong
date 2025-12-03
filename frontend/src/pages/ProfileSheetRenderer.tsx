@@ -1,6 +1,6 @@
 import React from 'react'
-import { SheetOverlay } from './SheetOverlay'
-import { ProfilePage } from '../pages/ProfilePage'
+import { SheetOverlay } from '../components/modals/SheetOverlay'
+import { ProfilePage } from './ProfilePage'
 import { useProfileSheet } from '../contexts/ProfileSheetContext'
 
 export function ProfileSheetRenderer() {

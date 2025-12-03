@@ -36,9 +36,14 @@ import * as React from "react";
  *  • gap-2          — расстояние между иконкой и текстом по умолчанию = 8px (для безиконных вариантов не важно)
  *  • rounded-[12px] — радиус скругления = 12px (меняется ТУТ)
  */
-type Priority = "primary" | "secondary" | "tertiary";
+type Priority = "primary" | "secondary" | "tertiary" | "inverted";
 type Tone = "brand" | "default" | "error";
-type Size = "sm" | "md";
+type Size = "XS" | "S" | "M";
+
+// Тип для CSS свойств с поддержкой кастомных переменных
+type CSSPropertiesWithCustom = React.CSSProperties & {
+  [key: `--${string}`]: string | number;
+};
 
 export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   priority?: Priority;
@@ -52,58 +57,68 @@ export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 const cx = (...a: Array<string | false | undefined>) => a.filter(Boolean).join(" ");
 
 const sizes: Record<Size, string> = {
-  // sm: высота 32, кегль 14, line-height 24
-  sm: "h-[32px] text-[14px] leading-[24px]",
-  // md: высота 48, кегль 16, line-height 24
-  md: "h-[48px] text-[16px] leading-[24px]"
+  // XS: высота 28, кегль 12, line-height 16
+  XS: "h-[28px] text-[12px] leading-[16px]",
+  // S: высота 32, кегль 14, line-height 24
+  S: "h-[32px] text-[14px] leading-[24px]",
+  // M: высота 48, кегль 16, line-height 24
+  M: "h-[48px] text-[16px] leading-[24px]"
 };
 
-/** Паддинги по умолчанию (без иконок) — взято из твоих правок */
+/** Паддинги по умолчанию (без иконок) */
 const pad: Record<Size, string> = {
-  sm: "px-[8px]",
-  md: "px-[16px]"
+  XS: "px-[6px]",
+  S: "px-[8px]",
+  M: "px-[16px]"
 };
 
 /** Паддинги, если есть только левая иконка (слегка уменьшаем слева) */
 const padIconLeft: Record<Size, string> = {
-  sm: "pl-[4px] pr-[8px]",
-  md: "pl-[12px] pr-[16px]"
+  XS: "pl-[2px] pr-[6px]",
+  S: "pl-[4px] pr-[8px]",
+  M: "pl-[12px] pr-[16px]"
 };
 
 /** Паддинги, если есть только правая иконка (слегка уменьшаем справа) */
 const padIconRight: Record<Size, string> = {
-  sm: "pl-[8px] pr-[4px]",
-  md: "pl-[16px] pr-[12px]"
+  XS: "pl-[6px] pr-[2px]",
+  S: "pl-[8px] pr-[4px]",
+  M: "pl-[16px] pr-[12px]"
 };
 
 /** Паддинги, если есть и левая, и правая иконки (уменьшаем оба края) */
 const padIconBoth: Record<Size, string> = {
-  sm: "px-[4px]",
-  md: "px-[12px]"
+  XS: "px-[2px]",
+  S: "px-[4px]",
+  M: "px-[12px]"
 };
 
 /** Размер контейнера иконок (фикс) */
 const iconSize: Record<Size, string> = {
-  sm: "w-[20px] h-[20px]",
-  md: "w-[24px] h-[24px]"
+  XS: "w-[16px] h-[16px]",
+  S: "w-[20px] h-[20px]",
+  M: "w-[24px] h-[24px]"
 };
 
 /** Меньший gap для иконочных вариантов */
 const gapIcon: Record<Size, string> = {
-  sm: "gap-[6px]",
-  md: "gap-[8px]"
+  XS: "gap-[4px]",
+  S: "gap-[6px]",
+  M: "gap-[8px]"
 };
 
 /** Ширина для иконочных (квадратных) кнопок */
 const squareW: Record<Size, string> = {
-  sm: "w-[32px]",
-  md: "w-[48px]"
+  XS: "w-[28px]",
+  S: "w-[32px]",
+  M: "w-[48px]"
 };
 
 /** Радиус скругления по размерам */
 const radius: Record<Size, string> = {
-  sm: "rounded-[6px]", // пример: маленькой кнопке меньше скругление
-  md: "rounded-[16px]"
+  XS: "rounded-[999px]",
+  S: "rounded-[6px]",
+  M: "rounded-[16px]"
 };
 
 /** Базовые классы кнопки (без радиуса — он задаётся через `radius[size]`) */
@@ -120,21 +135,28 @@ const base =
  */
 const visualStyles: Record<Priority, Record<Tone, string>> = {
   primary: {
-    brand:   "bg-bg-brand  text-fg-inverted border border-transparent",
-    default: "bg-fg-1      text-fg-inverted border border-transparent",
-    // не используется, т.к. tone=error форсит стиль tertiary/error
-    error:   "bg-fg-1      text-fg-inverted border border-transparent"
+    brand:   "bg-bg-brand  text-fg-inverted",
+    default: "bg-fg-1      text-fg-inverted",
+    // error никогда не используется - tone=error всегда tertiary
+    error:   ""
   },
   secondary: {
-    brand:   "bg-bg-3 text-fg-brand  border border-transparent",
-    default: "bg-bg-3 text-fg-2      border border-transparent",
+    // Фон для secondary используется из CSS переменной --bg-special (в style inline)
+    brand:   "text-fg-brand",
+    default: "text-fg-2",
     // не используется, т.к. tone=error форсит стиль tertiary/error
-    error:   "bg-bg-1 text-fg-1      border border-stroke-1"
+    error:   "text-fg-1"
+  },
+  inverted: {
+    // Фон для inverted используется из CSS переменной --bg-1 (в style inline)
+    brand:   "text-fg-brand",
+    default: "text-fg-2",
+    error:   "text-fg-1"
   },
   tertiary: {
-    brand:   "bg-transparent text-fg-brand  border border-transparent",
-    default: "bg-transparent text-fg-1      border border-transparent",
-    error:   "bg-transparent text-fg-error  border border-transparent"
+    brand:   "bg-transparent text-fg-brand",
+    default: "bg-transparent text-fg-1",
+    error:   "bg-transparent text-fg-error"
   }
 };
 
@@ -163,12 +185,17 @@ function visual(priority: Priority, tone: Tone) {
    // PRIMARY
    "primary:brand":   { hover: "var(--state-default-hover)", pressed: "var(--state-default-pressed)" },
    "primary:default": { hover: "var(--state-inverted-hover)", pressed: "var(--state-inverted-pressed)" },
-   "primary:error":  { hover: "var(--state-error-hover)", pressed: "var(--state-error-pressed)" },
+   "primary:error":  { hover: "var(--state-error-hover)", pressed: "var(--state-error-pressed)" }, // никогда не используется
 
    // SECONDARY
    "secondary:brand":   { hover: "var(--state-brand-hover)", pressed: "var(--state-brand-pressed)" },
    "secondary:default": { hover: "var(--state-default-hover)", pressed: "var(--state-default-pressed)" },
    "secondary:error":  { hover: "var(--state-error-hover)", pressed: "var(--state-error-pressed)" },
+
+   // INVERTED
+   "inverted:brand":   { hover: "var(--state-brand-hover)", pressed: "var(--state-brand-pressed)" },
+   "inverted:default": { hover: "var(--state-default-hover)", pressed: "var(--state-default-pressed)" },
+   "inverted:error":  { hover: "var(--state-error-hover)", pressed: "var(--state-error-pressed)" },
 
    // TERTIARY
    "tertiary:brand":   { hover: "var(--state-brand-hover)", pressed: "var(--state-brand-pressed)" },
@@ -181,7 +208,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     {
       priority = "primary",
       tone = "brand",
-      size = "md",
+      size = "M",
       className,
       leftIcon,
       rightIcon,
@@ -213,17 +240,28 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     // и без var()/fallback'ов). Если забудешь заполнить — будет transparent.
     const key = `${priority}:${tone}` as `${Priority}:${Tone}`;
     const lay = STATE_LAYER[key];
+
+    // Secondary/Inverted buttons используют CSS переменные для фона (в style inline)
+    const bgStyle = priority === "secondary"
+      ? { backgroundColor: "var(--bg-special)" as any }
+      : priority === "inverted"
+      ? { backgroundColor: "var(--bg-1)" as any }
+      : {};
+
     const style = {
       "--layer-hover":   lay.hover,
       "--layer-pressed": lay.pressed,
       letterSpacing: "-3%",
+      ...bgStyle,
       ...(externalStyle as React.CSSProperties)
-    } as React.CSSProperties;
+    } as CSSPropertiesWithCustom;
 
     // Иконки и вычисление паддингов/зазора
     // Получаем размеры иконок в пикселях для этого размера кнопки
     const getIconPixelSize = () => {
-      return size === "sm" ? 20 : 24;
+      if (size === "XS") return 16;
+      if (size === "S") return 20;
+      return 24; // M
     };
 
     // Клонируем иконки и добавляем им размеры

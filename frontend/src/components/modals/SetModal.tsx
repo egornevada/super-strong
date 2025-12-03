@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { Button } from '../main/Button';
-import { TextField } from '../TextField';
+import { Button } from '../main-components/Button';
+import { TextField } from '../main-components/TextField';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 
 export interface SetModalProps {
@@ -246,7 +246,7 @@ export const SetModal = React.forwardRef<HTMLDivElement, SetModalProps>(
               <Button
                 priority="tertiary"
                 tone="error"
-                size="md"
+                size="M"
                 onClick={() => onDelete?.(setIndex)}
                 style={{ padding: '8px' }}
               >
@@ -256,7 +256,7 @@ export const SetModal = React.forwardRef<HTMLDivElement, SetModalProps>(
             <Button
               priority="secondary"
               tone="default"
-              size="md"
+              size="M"
               className="flex-1"
               onClick={handleClose}
             >
@@ -265,7 +265,7 @@ export const SetModal = React.forwardRef<HTMLDivElement, SetModalProps>(
             <Button
               priority="primary"
               tone={isEditMode ? 'default' : 'brand'}
-              size="md"
+              size="M"
               className="flex-1"
               onClick={handleConfirm}
             >

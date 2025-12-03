@@ -1,15 +1,14 @@
 import React from 'react'
-import { Header } from './headers/HeaderCalendar'
-import { Button } from './main/Button'
+import { Header, Button } from '../index'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 
-export interface PageLayoutProps {
+export interface ModalBigProps {
   title: string
   onClose?: () => void
   children: React.ReactNode
 }
 
-export function PageLayout({ title, onClose, children }: PageLayoutProps) {
+export function ModalBig({ title, onClose, children }: ModalBigProps) {
   return (
     <div className="w-full h-full bg-bg-1 flex flex-col relative">
       {/* Header with Title and Close Button */}
@@ -19,7 +18,7 @@ export function PageLayout({ title, onClose, children }: PageLayoutProps) {
           <Button
             priority="secondary"
             tone="default"
-            size="md"
+            size="M"
             leftIcon={<CloseRoundedIcon />}
             aria-label="Close"
             iconOnly

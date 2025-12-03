@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { Button } from '../main/Button';
-import { SetModal } from '../modals';
+import { Button } from '../main-components/Button';
+import { SetModal } from '../modals/SetModal';
 import AddCircleRounded from '@mui/icons-material/AddCircleRounded';
 
 export interface Set {
@@ -142,7 +142,7 @@ export const TrackCard = React.forwardRef<HTMLDivElement, TrackCardProps>(
             </div>
 
             <Button
-              size="sm"
+              size="S"
               priority="tertiary"
               tone="default"
               leftIcon={<AddCircleRounded />}

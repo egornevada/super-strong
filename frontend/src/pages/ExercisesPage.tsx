@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import { FilterPill, ExerciseCard, Button, HeaderWithBackButton, StickyTagsBar, ErrorPage } from '../components';
-import { ExercisesPageSkeleton } from '../components/loaders/ExercisesPageSkeleton';
+import { ExercisesPageSkeleton } from '../components/loading/ExercisesPageSkeleton';
 import { fetchBatchInitData, fetchExercises, fetchCategories, type Exercise } from '../services/directusApi';
 import { useExerciseDetailSheet } from '../contexts/SheetContext';
-import { useBugReportSheet } from '../contexts/BugReportSheetContext';
 import ArrowCircleRightRounded from '@mui/icons-material/ArrowCircleRightRounded';
 
 interface SelectedDate {
@@ -21,7 +20,6 @@ interface ExercisesPageProps {
 
 export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSelectedIds = [] }: ExercisesPageProps) {
   const { openExerciseDetail } = useExerciseDetailSheet();
-  const { openBugReportSheet } = useBugReportSheet();
   const [selectedExercises, setSelectedExercises] = useState<string[]>(initialSelectedIds);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [categories, setCategories] = useState<string[]>(['Грудь']);
@@ -311,7 +309,6 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
         <HeaderWithBackButton
           backButtonLabel={dateLabel}
           onBack={onBack}
-          onOpenBugReport={() => openBugReportSheet('Упражнения')}
         />
       </div>
 
@@ -417,7 +414,7 @@ export function ExercisesPage({ selectedDate, onBack, onStartTraining, initialSe
           <Button
             priority="primary"
             tone="brand"
-            size="md"
+            size="M"
             className="w-full rounded-none pt-4 pb-6"
             style={{ borderRadius: '0', height: '64px' }}
             rightIcon={<ArrowCircleRightRounded />}

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Button } from "../main/Button";
+import { Button } from "../main-components/Button";
 import AddRounded from "@mui/icons-material/AddRounded";
 import CloseRounded from "@mui/icons-material/CloseRounded";
 
@@ -55,7 +55,7 @@ export const ExerciseCard = React.forwardRef<HTMLDivElement, ExerciseCardProps>(
             }}
           >
             <Button
-              size="md"
+              size="M"
               priority={isSelected ? "primary" : "secondary"}
               tone="default"
               className={isSelected ? "" : ""}

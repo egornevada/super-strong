@@ -1,8 +1,8 @@
 import React from 'react';
 import './Loader.css';
 
-interface LoaderProps {
-  size?: 'sm' | 'md' | 'lg';
+export interface LoaderProps {
+  size?: 'S' | 'M' | 'L';
   className?: string;
 }
 
@@ -11,11 +11,11 @@ interface LoaderProps {
  * Shows rotating arcs with fg-disabled and fg-brand colors
  * Used in header during save/loading operations
  */
-export function Loader({ size = 'md', className = '' }: LoaderProps) {
+export function Loader({ size = 'M', className = '' }: LoaderProps) {
   const sizeMap = {
-    sm: 24,
-    md: 46,
-    lg: 64,
+    S: 24,
+    M: 46,
+    L: 64,
   };
 
   const dimensions = sizeMap[size];
@@ -54,7 +54,7 @@ export function Loader({ size = 'md', className = '' }: LoaderProps) {
 export function InlineLoader({ text = 'Сохраняется...', className = '' }: { text?: string; className?: string }) {
   return (
     <div className={`inline-loader flex items-center gap-2 ${className}`}>
-      <Loader size="sm" />
+      <Loader size="S" />
       <span className="text-fg-2 text-sm">{text}</span>
     </div>
   );

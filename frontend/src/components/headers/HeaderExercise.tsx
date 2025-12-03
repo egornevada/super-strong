@@ -1,54 +1,18 @@
 import * as React from 'react';
-import { useEffect } from 'react';
-import { Button } from '../main/Button';
-import { Loader } from '../loaders/Loader';
+import { Button } from '../main-components/Button';
+import { Loader } from '../loading/Loader';
 import EventRoundedIcon from '@mui/icons-material/EventRounded';
 import logoSvg from '../../assets/icons/Logo.svg';
-import logoErrorSvg from '../../assets/icons/Logo Error.svg';
 
 export interface HeaderWithBackButtonProps {
   backButtonLabel: string;
   onBack?: () => void;
   rightSlot?: React.ReactNode;
   isLoading?: boolean;
-  onOpenBugReport?: () => void;
 }
 
 export const HeaderWithBackButton = React.forwardRef<HTMLDivElement, HeaderWithBackButtonProps>(
-  ({ backButtonLabel, onBack, rightSlot, isLoading = false, onOpenBugReport }, ref) => {
-    const [isErrorLogoActive, setIsErrorLogoActive] = React.useState(false);
-    const logoContainerRef = React.useRef<HTMLDivElement>(null);
-
-    // Handle clicks outside logo to reset state
-    useEffect(() => {
-      const handleDocumentClick = (event: MouseEvent) => {
-        if (logoContainerRef.current && !logoContainerRef.current.contains(event.target as Node)) {
-          setIsErrorLogoActive(false);
-        }
-      };
-
-      if (isErrorLogoActive) {
-        document.addEventListener('click', handleDocumentClick);
-        return () => {
-          document.removeEventListener('click', handleDocumentClick);
-        };
-      }
-    }, [isErrorLogoActive]);
-
-    const handleLogoClick = (e: React.MouseEvent) => {
-      e.stopPropagation();
-
-      if (!isErrorLogoActive) {
-        // First click: activate error logo
-        setIsErrorLogoActive(true);
-      } else {
-        // Second click: open bug report
-        setIsErrorLogoActive(false);
-        onOpenBugReport?.();
-      }
-    };
-
-    const currentLogoSrc = isErrorLogoActive ? logoErrorSvg : logoSvg;
+  ({ backButtonLabel, onBack, rightSlot, isLoading = false }, ref) => {
 
     return (
       <div
@@ -59,14 +23,12 @@ export const HeaderWithBackButton = React.forwardRef<HTMLDivElement, HeaderWithB
         <div className="h-full flex items-center justify-between">
           {/* Logo with overlay loader */}
           <div
-            ref={logoContainerRef}
-            className="relative cursor-pointer"
+            className="relative"
             style={{ width: '106px', height: '44px' }}
-            onClick={handleLogoClick}
           >
             {/* Logo - always visible */}
             <img
-              src={currentLogoSrc}
+              src={logoSvg}
               alt="Logo"
               style={{ width: '100%', height: '100%', objectFit: 'contain' }}
             />
@@ -84,7 +46,7 @@ export const HeaderWithBackButton = React.forwardRef<HTMLDivElement, HeaderWithB
                   height: '46px'
                 }}
               >
-                <Loader size="md" />
+                <Loader size="M" />
               </div>
             )}
           </div>
@@ -95,7 +57,7 @@ export const HeaderWithBackButton = React.forwardRef<HTMLDivElement, HeaderWithB
             <Button
               priority="secondary"
               tone="default"
-              size="md"
+              size="M"
               onClick={onBack}
               aria-label="Select date"
               style={{

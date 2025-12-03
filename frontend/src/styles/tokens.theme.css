@@ -12,10 +12,11 @@
   /* -------- Background -------- */
   --bg-1: var(--g-neutral-white);
   --bg-2: var(--g-neutral-grey-96);
+  --bg-special: hsla(228, 22%, 95%, 1);  /* Special light grey for floating elements */
   --bg-3: var(--g-neutral-grey-92);
   --bg-inverted: var(--g-neutral-grey-14);
   --bg-controls: var(--g-neutral-grey-74);
-  --bg-disabled: var(--g-neutral-grey-86); 
+  --bg-disabled: var(--g-neutral-grey-86);
   --bg-brand: var(--g-blue-Main);
   --bg-success: var(--g-green-Main);
   --bg-error: var(--g-red-Main);

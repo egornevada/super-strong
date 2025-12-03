@@ -1,7 +1,7 @@
 import React from 'react';
 import { Loader } from './Loader';
 
-interface HeaderLoaderProps {
+export interface HeaderLoaderProps {
   isLoading: boolean;
   text?: string;
 }
@@ -18,7 +18,7 @@ export function HeaderLoader({ isLoading, text = 'Сохранение...' }: He
 
   return (
     <div className="flex items-center gap-2 px-3 py-2 bg-bg-brand/10 rounded-md">
-      <Loader size="sm" />
+      <Loader size="S" />
       <span className="text-fg-brand text-xs font-medium">{text}</span>
     </div>
   );

@@ -6,7 +6,6 @@ import { PageCacheProvider } from './contexts/PageCacheContext'
 import { ExerciseDetailSheetProvider } from './contexts/SheetContext'
 import { ProfileSheetProvider } from './contexts/ProfileSheetContext'
 import { SettingsSheetProvider } from './contexts/SettingsSheetContext'
-import { BugReportSheetProvider } from './contexts/BugReportSheetContext'
 import { UserProvider } from './contexts/UserContext'
 
 // Initialize React Query client
@@ -37,9 +36,7 @@ createRoot(document.getElementById('root')!).render(
         <ExerciseDetailSheetProvider>
           <ProfileSheetProvider>
             <SettingsSheetProvider>
-              <BugReportSheetProvider>
-                <App />
-              </BugReportSheetProvider>
+              <App />
             </SettingsSheetProvider>
           </ProfileSheetProvider>
         </ExerciseDetailSheetProvider>

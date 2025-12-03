@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Button } from '../main/Button';
+import { Button } from '../main-components/Button';
 
 export interface AlertDialogProps {
   isOpen: boolean;
@@ -70,7 +70,7 @@ export const AlertDialog = React.forwardRef<HTMLDivElement, AlertDialogProps>(
             <Button
               priority="primary"
               tone={isDangerous ? 'error' : 'brand'}
-              size="md"
+              size="M"
               className="w-full"
               onClick={onConfirm}
             >
@@ -79,7 +79,7 @@ export const AlertDialog = React.forwardRef<HTMLDivElement, AlertDialogProps>(
             <Button
               priority="secondary"
               tone="default"
-              size="md"
+              size="M"
               className="w-full"
               onClick={onCancel}
             >

@@ -1,6 +1,6 @@
 import React from 'react'
-import { SheetOverlay } from './SheetOverlay'
-import { ExerciseDetailPage } from '../pages/ExerciseDetailPage'
+import { SheetOverlay } from '../components/modals/SheetOverlay'
+import { ExerciseDetailPage } from './ExerciseDetailPage'
 import { useExerciseDetailSheet } from '../contexts/SheetContext'
 
 export function ExerciseDetailSheetRenderer() {

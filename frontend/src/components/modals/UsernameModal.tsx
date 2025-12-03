@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Button } from '../main/Button';
-import { TextField } from '../TextField';
+import { Button } from '../main-components/Button';
+import { TextField } from '../main-components/TextField';
 import { logger } from '../../lib/logger';
 
 export interface UsernameModalProps {
@@ -76,7 +76,7 @@ export function UsernameModal({
           <TextField
             label="Никнейм"
             value={username}
-            onChange={(value) => {
+            onChange={(value: string) => {
               setUsername(value);
               setLocalError('');
             }}
@@ -101,7 +101,7 @@ export function UsernameModal({
           <Button
             priority="primary"
             tone="default"
-            size="md"
+            size="M"
             className="w-full"
             onClick={handleSubmit}
             disabled={effectiveIsLoading}

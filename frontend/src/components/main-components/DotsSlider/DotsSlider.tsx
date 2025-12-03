@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Step } from '../../services/directusApi';
-import './StepsSlider.css';
+import { Step } from '../../../services/directusApi';
+import './DotsSlider.css';
 
-export interface StepsSliderProps {
+export interface DotsSliderProps {
   steps: Step[];
   exerciseName?: string;
 }
 
-export function StepsSlider({ steps, exerciseName = 'Упражнение' }: StepsSliderProps) {
+export function DotsSlider({ steps, exerciseName = 'Упражнение' }: DotsSliderProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [direction, setDirection] = useState<'next' | 'prev'>('next');
   const sliderRef = useRef<HTMLDivElement>(null);

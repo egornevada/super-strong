@@ -1,10 +1,10 @@
 import React from 'react';
-import logoSvg from '../../assets/icons/Logo.svg';
-import { Loader } from '../loaders/Loader';
-import { LoadingScreenSkeleton } from './LoadingScreenSkeleton';
-import './LoadingScreen.css';
+import logoSvg from '../assets/icons/Logo.svg';
+import { Loader } from '../components/loading/Loader';
+import { LoadingScreenSkeleton } from '../components/loading/LoadingScreenSkeleton';
+import './StartAppLoading.css';
 
-interface LoadingScreenProps {
+interface StartAppLoadingProps {
   progress: number; // 0-100
   currentStep: string; // "Загружаем пользователя", "Загружаем упражнения", etc.
   totalWeight?: number;
@@ -12,13 +12,13 @@ interface LoadingScreenProps {
 }
 
 /**
- * Full-screen loading screen shown during app initialization
+ * Full-screen loading page shown during app initialization
  * Displays:
  * - Header with logo (mirroring main header)
  * - Calendar skeleton
  * - Stats block with progress and current step
  */
-export function LoadingScreen({ progress, currentStep, totalWeight = 0, totalDays = 0 }: LoadingScreenProps) {
+export function StartAppLoading({ progress, currentStep, totalWeight = 0, totalDays = 0 }: StartAppLoadingProps) {
   return (
     <div className="loading-screen">
       {/* Header - mirroring main app header */}
@@ -34,7 +34,7 @@ export function LoadingScreen({ progress, currentStep, totalWeight = 0, totalDay
 
         {/* ЛОАДЕР ПЕРЕКРЫВАЕТ ЛОГОТИП (абсолютная позиция, right -1px, 46x46) */}
         <div className="loading-logo-container">
-          <Loader size="md" />
+          <Loader size="M" />
         </div>
       </div>
 

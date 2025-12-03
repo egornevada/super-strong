@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
-import { PageLayout } from '../components/PageLayout'
-import { AlertDialog, Button, DefaultStroke, SetModal, type Set } from '../components'
-import { StepsSlider } from '../components/StepsSlider/StepsSlider'
+import { ModalBig, AlertDialog, Button, DefaultStroke, SetModal, type Set } from '../components'
+import { DotsSlider } from '../components/main-components/DotsSlider/DotsSlider'
 import { fetchExerciseById, type Exercise } from '../services/directusApi'
 import { useExerciseDetailSheet } from '../contexts/SheetContext'
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded'
@@ -62,17 +61,17 @@ export function ExerciseDetailPage({
 
   if (loading) {
     return (
-      <PageLayout title="Информация" onClose={onClose}>
+      <ModalBig title="Информация" onClose={onClose}>
         <p className="text-fg-2 text-center py-8">Загрузка упражнения...</p>
-      </PageLayout>
+      </ModalBig>
     )
   }
 
   if (error || !exercise) {
     return (
-      <PageLayout title="Информация" onClose={onClose}>
+      <ModalBig title="Информация" onClose={onClose}>
         <p className="text-fg-2 text-center">{error || 'Упражнение не найдено'}</p>
-      </PageLayout>
+      </ModalBig>
     )
   }
 
@@ -191,13 +190,13 @@ export function ExerciseDetailPage({
   }
 
   return (
-    <PageLayout title={exercise.name} onClose={onClose}>
+    <ModalBig title={exercise.name} onClose={onClose}>
       {/* Exercise name as heading */}
 
       {/* Steps slider - if steps are available */}
       {exercise.steps && exercise.steps.length > 0 ? (
         <div className="mb-6">
-          <StepsSlider steps={exercise.steps} exerciseName={exercise.name} />
+          <DotsSlider steps={exercise.steps} exerciseName={exercise.name} />
         </div>
       ) : (
         /* Fallback to regular image if no steps */
@@ -283,7 +282,7 @@ export function ExerciseDetailPage({
             <Button
               priority="secondary"
               tone="default"
-              size="md"
+              size="M"
               className="w-full"
               onClick={openAddModal}
             >
@@ -298,7 +297,7 @@ export function ExerciseDetailPage({
             <Button
               priority="secondary"
               tone={isExerciseAdded ? "default" : "default"}
-              size="md"
+              size="M"
               className="w-full"
               style={{
                 borderRadius: '0',
@@ -326,7 +325,7 @@ export function ExerciseDetailPage({
             <Button
               priority="tertiary"
               tone="error"
-              size="md"
+              size="M"
               className="w-full"
               style={{
                 borderRadius: '0',
@@ -369,6 +368,6 @@ export function ExerciseDetailPage({
         onConfirm={handleConfirmSet}
         onDelete={handleSetDelete}
       />
-    </PageLayout>
+    </ModalBig>
   )
 }

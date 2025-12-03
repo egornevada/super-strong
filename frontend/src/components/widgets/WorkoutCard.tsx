@@ -1,6 +1,6 @@
 import React from 'react'
-import { Button } from '../main'
-import { DefaultStroke } from '../StatItem'
+import { Button } from '../main-components/Button'
+import { DefaultStroke } from '../main-components/MonthStats'
 import MoreVertRounded from '@mui/icons-material/MoreVertRounded'
 
 export interface WorkoutSession {
@@ -9,7 +9,7 @@ export interface WorkoutSession {
   exerciseCount: number
 }
 
-export interface SessionCardProps {
+export interface WorkoutCardProps {
   session: WorkoutSession
   isMenuOpen: boolean
   onMenuToggle: () => void
@@ -17,13 +17,13 @@ export interface SessionCardProps {
   onDelete: () => void
 }
 
-export function SessionCard({
+export function WorkoutCard({
   session,
   isMenuOpen,
   onMenuToggle,
   onOpen,
   onDelete
-}: SessionCardProps) {
+}: WorkoutCardProps) {
   const formatTime = (isoString: string): string => {
     try {
       const date = new Date(isoString)
@@ -61,7 +61,7 @@ export function SessionCard({
             <Button
               priority="tertiary"
               tone="default"
-              size="sm"
+              size="S"
               leftIcon={<MoreVertRounded />}
               onClick={onMenuToggle}
               aria-label="Session menu"
@@ -93,7 +93,7 @@ export function SessionCard({
         <Button
           priority="primary"
           tone="default"
-          size="md"
+          size="M"
           className="w-full"
           style={{ borderRadius: '0' }}
           onClick={() => onOpen(session.id, session.started_at)}
